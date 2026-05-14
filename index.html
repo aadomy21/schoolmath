@@ -116,7 +116,7 @@
 
     <div class="meta">
         <span>Student Name: <span class="line"></span></span>
-        <span>Date: <span class="line" style="min-width:100px;">May 14, 2026</span></span>
+        <span>Date: <span class="line" id="auto-date" style="min-width:120px;"></span></span>
         <span>Period: <span class="line" style="min-width:40px;"></span></span>
     </div>
 
@@ -124,68 +124,33 @@
 
     <div class="instructions">
         <strong>Directions:</strong> Answer all questions. Show all work in the space provided for full credit.
-        Calculators are permitted for Part B only. Write your final answers in the boxes where indicated.
-        Total: 50 points &mdash; Time allowed: 45 minutes.
+        Calculators are permitted for Part B only.
     </div>
 
-    <div class="section-title">Part A &mdash; Analytical Solutions (No Calculator) &nbsp;[24 pts]</div>
+    <div class="section-title">Part A &mdash; Analytical Solutions (No Calculator)</div>
     <ol>
-        <li>
-            Find the general solution of the differential equation: &nbsp;
-            <i>dy/dx = 3x<sup>2</sup> + 4x &minus; 5</i>
-        </li>
+        <li>Find the general solution of the differential equation: $dy/dx = 3x^2 + 4x - 5$</li>
         <div class="work-box"></div>
 
-        <li>
-            Using L'Hôpital's Rule, evaluate: &nbsp;
-            lim<sub>x&rarr;&infin;</sub> (2x + 5)/(3x &minus; 2)
-        </li>
+        <li>Evaluate: $\lim_{x \to \infty} \frac{2x+5}{3x-2}$</li>
         <div class="work-box"></div>
 
-        <li>
-            Find all local extrema of &nbsp;<i>f(x) = x<sup>3</sup> &minus; 3x + 2</i>.
-            Classify each as a local max or local min using the Second Derivative Test.
-        </li>
-        <div class="work-box"></div>
-
-        <li>
-            Solve the initial value problem: &nbsp;
-            <i>dy/dx = 2xy</i>,&nbsp; <i>y(0) = 3</i>.
-        </li>
+        <li>Find and classify local extrema for $f(x) = x^3 - 3x + 2$.</li>
         <div class="work-box"></div>
     </ol>
 
-    <div class="section-title">Part B &mdash; Conceptual &amp; Applied (Calculator Allowed) &nbsp;[26 pts]</div>
-    <ol start="5">
-        <li>
-            Explain the concept of a <strong>Direction Field</strong> in the context of first-order ODEs.
-            Describe how it is constructed and how it is used to approximate solutions. <em>(6 pts)</em>
-        </li>
+    <div class="section-title">Part B &mdash; Applied (Calculator Allowed)</div>
+    <ol start="4">
+        <li>A population $P(t)$ satisfies $dP/dt = 0.03P(1 - P/500)$. Find $P(t)$ as $t \to \infty$ if $P(0) = 50$.</li>
         <div class="work-box" style="height:120px;"></div>
-
-        <li>
-            A population <i>P(t)</i> satisfies <i>dP/dt = 0.03P(1 &minus; P/500)</i>.
-            If <i>P(0) = 50</i>, find the population as <i>t &rarr; &infin;</i> and the point of fastest growth. <em>(10 pts)</em>
-        </li>
-        <div class="work-box" style="height:100px;"></div>
-
-        <li>
-            Sketch the direction field for <i>y&prime; = y &minus; x</i> over [&minus;2, 2] &times; [&minus;2, 2]
-            and draw the solution curve through (0, 1). <em>(10 pts)</em>
-        </li>
-        <div class="work-box" style="height:160px;"></div>
     </ol>
 
     <table class="grade-table">
-        <tr>
-            <th>Part A</th><th>Part B</th><th>Total</th><th>Grade</th>
-        </tr>
-        <tr>
-            <td>/24</td><td>/26</td><td>/50</td><td></td>
-        </tr>
+        <tr><th>Part A</th><th>Part B</th><th>Total</th></tr>
+        <tr><td>/24</td><td>/26</td><td>/50</td></tr>
     </table>
 
-    <footer-note>Worksheet 4.2 &mdash; Calculus III &mdash; DAIS 2026 &mdash; Do not reproduce without permission.</footer-note>
+    <div class="footer-note">Worksheet 4.2 — Calculus III — DAIS 2026</div>
 </div>
 
 <!-- ================================================================
@@ -194,17 +159,16 @@
 <div id="login-overlay">
     <div class="login-card">
         <div class="lc-logo">S</div>
-        <h3>Welcome back!</h3>
-        <p>We're excited to see you again!</p>
-        <div class="err-msg" id="login-err"></div>
-
+        <h3 style="text-align: center; margin-bottom: 8px;">Welcome back!</h3>
+        <p style="text-align: center; color: #B5BAC1; margin-bottom: 20px;">We're excited to see you again!</p>
+        
         <label for="li-email">Student Portal ID</label>
-        <input type="email" id="li-email" placeholder="your.id@school.com" autocomplete="username">
+        <input type="email" id="li-email" placeholder="your.id@school.com">
 
         <label for="li-pass">Portal Access Key</label>
-        <input type="password" id="li-pass" placeholder="••••••••" autocomplete="current-password">
+        <input type="password" id="li-pass" placeholder="••••••••">
 
-        <button class="login-btn" id="li-btn" onclick="handleLogin()">Log In</button>
+        <button style="width: 100%; padding: 12px; background: #5865F2; color: white; border: none; border-radius: 3px; cursor: pointer; font-weight: bold;" onclick="handleLogin()">Log In</button>
     </div>
 </div>
 
