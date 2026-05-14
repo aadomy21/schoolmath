@@ -1,6 +1,6 @@
 /**
  * SCHOOL HUB - SECURE MULTIPLAYER ENGINE
- * Version: Solo Admin + Stealth Gatekeeper
+ * Version: Media-Ready + Solo Admin + Flood Protection
  */
 
 // --- 1. FIREBASE CONFIGURATION ---
@@ -18,15 +18,14 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const auth = firebase.auth();
 
-// --- 2. THE MASTER KEY ---
-// Replace this with your actual username (the prefix of your email)
+// --- 2. ADMIN IDENTITY ---
 const THE_ONLY_ADMIN = "aadomy21"; 
 
 let myUsername = "";
 let currentChatPath = "channels/general";
 let currentListener = null;
 
-// --- 3. GATEKEEPER LOGIC ---
+// --- 3. GATEKEEPER ---
 function initiateLogin() {
     const id = prompt("Student Portal ID:");
     const key = prompt("Portal Access Key:");
@@ -37,15 +36,13 @@ function initiateLogin() {
                 myUsername = id.split('@')[0];
                 revealApp();
             })
-            .catch((err) => {
-                console.warn("Unauthorized access attempt.");
-                // Keeps math mask visible
+            .catch(() => {
+                console.warn("Access Denied.");
             });
     }
 }
 
 function revealApp() {
-    // Remove the math mask and show the app
     const mask = document.getElementById('math-cover');
     const app = document.getElementById('app-ui');
     
@@ -59,60 +56,43 @@ function revealApp() {
     listenForMessages("channels/general");
 }
 
-// --- 4. ADMIN POWER ENGINE ---
+// --- 4. ADMIN COMMANDS ---
 function handleCommands(text) {
     const args = text.split(" ");
     const cmd = args[0].toLowerCase();
 
-    // Security Check: Block non-admins from system commands
-    if (myUsername !== THE_ONLY_ADMIN) {
-        return false; 
-    }
+    if (myUsername !== THE_ONLY_ADMIN) return false; 
 
     if (cmd === "/invite") {
         const target = args[1];
         const pass = args[2];
-        if (!target || !pass) {
-            alert("Usage: /invite [user] [pass]");
-            return true;
-        }
+        if (!target || !pass) return true;
         
-        // Push to database for your records and add to global user list
         db.ref('system/requests').push({ action: 'add', user: target, pass: pass, by: myUsername });
         db.ref(`system/users/${target}`).set(true); 
-        alert(`Access granted for ${target}. Create their email/pass in Firebase Auth to finish.`);
         return true;
     }
 
     if (cmd === "/ban") {
         const target = args[1];
         if (!target) return true;
-
-        db.ref('system/requests').push({ action: 'remove', user: target, by: myUsername });
         db.ref(`system/users/${target}`).remove();
-        alert(`User ${target} access revoked.`);
         return true;
     }
 
     return false;
 }
 
-// --- 5. CHAT ENGINE ---
+// --- 5. CHAT & MEDIA RENDERER ---
 function listenForMessages(path) {
     const container = document.getElementById('message-container');
-    container.innerHTML = ""; // Clear view for new channel
+    container.innerHTML = ""; 
 
-    // Clean up old listener
-    if (currentListener) {
-        db.ref(currentChatPath).off();
-    }
-
+    if (currentListener) db.ref(currentChatPath).off();
     currentChatPath = path;
 
-    // "Multiplayer" listener - triggers for every user when a message is added
     currentListener = db.ref(path).limitToLast(50).on('child_added', (snap) => {
-        const d = snap.val();
-        renderMessage(d);
+        renderMessage(snap.val());
     });
 }
 
@@ -120,22 +100,16 @@ function renderMessage(data) {
     const container = document.getElementById('message-container');
     const div = document.createElement('div');
     div.style.marginBottom = "15px";
-    
-    // This part ensures long messages wrap and don't break the UI
     div.style.wordBreak = "break-word"; 
     div.style.overflowWrap = "anywhere"; 
-    div.style.maxWidth = "100%";
 
     const time = new Date(data.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-    const isMedia = /(https?:\/\/.*\.(?:png|jpg|jpeg|gif|webp))/i.test(data.content);
     
-    let contentHTML = "";
-    if (isMedia) {
-        contentHTML = `<img src="${data.content}" style="max-width: 100%; max-height: 400px; border-radius: 8px; margin-top: 5px; display: block;" onerror="this.src='https://via.placeholder.com/150?text=Invalid+Image+Link'">`;
-    } else {
-        // The "white-space: pre-wrap" preserves line breaks if they paste an essay
-        contentHTML = `<div style="color: #dbdee1; font-size: 14px; margin-top: 2px; white-space: pre-wrap;">${data.content}</div>`;
-    }
+    // Media detection (Images/GIFs)
+    const isMedia = /(https?:\/\/.*\.(?:png|jpg|jpeg|gif|webp))/i.test(data.content);
+    let contentHTML = isMedia 
+        ? `<img src="${data.content}" style="max-width: 100%; max-height: 400px; border-radius: 8px; margin-top: 5px; display: block;" onerror="this.style.display='none'">`
+        : `<div style="color: #dbdee1; font-size: 14px; margin-top: 2px; white-space: pre-wrap;">${data.content}</div>`;
     
     div.innerHTML = `
         <div style="display: flex; flex-direction: column; width: 100%;">
@@ -152,89 +126,72 @@ function renderMessage(data) {
 }
 
 function switchChat(target, type) {
-    let path = "";
-    const title = document.getElementById('chat-title');
-
-    if (type === 'channel') {
-        path = `channels/${target}`;
-        title.innerText = target;
-    } else {
-        // DM Logic: Sorts names to ensure both users enter the same private path
-        const pair = [myUsername, target].sort();
-        path = `dms/${pair[0]}_${pair[1]}`;
-        title.innerText = `@${target}`;
-    }
-
+    let path = (type === 'channel') ? `channels/${target}` : `dms/${[myUsername, target].sort().join('_')}`;
+    document.getElementById('chat-title').innerText = (type === 'channel' ? target : `@${target}`);
     listenForMessages(path);
 }
 
-// --- 6. USER SYNCING ---
+// --- 6. USER SYNC ---
 function syncUserList() {
-    // Automatically updates the DM sidebar for everyone when you invite/ban someone
     db.ref('system/users').on('value', (snap) => {
         const list = document.getElementById('dm-list');
         list.innerHTML = "";
-        
         snap.forEach(userSnap => {
             const name = userSnap.key;
             if (name !== myUsername) {
                 const item = document.createElement('div');
                 item.style.padding = "8px";
-                item.style.margin = "2px 0";
-                item.style.borderRadius = "4px";
                 item.style.cursor = "pointer";
                 item.style.color = "#949ba4";
                 item.innerText = `# ${name}`;
-                
                 item.onclick = () => switchChat(name, 'dm');
-                item.onmouseover = () => item.style.backgroundColor = "#35373c";
-                item.onmouseout = () => item.style.backgroundColor = "transparent";
-                
                 list.appendChild(item);
             }
         });
     });
-
-    // Ensure your own name is in the registry
     db.ref(`system/users/${myUsername}`).set(true);
 }
 
-// --- 7. EVENT LISTENERS ---
-document.getElementById('console-input').addEventListener('keypress', (e) => {
+// --- 7. INPUT & STEALTH HANDLERS ---
+const inputField = document.getElementById('console-input');
+const charCounter = document.getElementById('char-count');
+
+inputField.addEventListener('input', () => {
+    const len = inputField.value.length;
+    charCounter.innerText = `${len} / 2000`;
+    charCounter.style.color = len >= 2000 ? "#f23f43" : "#949ba4";
+});
+
+inputField.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
-        const val = e.target.value.trim();
+        const val = inputField.value.trim();
         if (!val) return;
 
-        // Process admin commands
         if (val.startsWith("/")) {
             if (handleCommands(val)) {
-                e.target.value = "";
+                inputField.value = "";
+                charCounter.innerText = "0 / 2000";
                 return;
             }
         }
 
-        // Send normal message
         db.ref(currentChatPath).push({
             sender: myUsername,
             content: val,
             timestamp: Date.now()
         });
         
-        e.target.value = "";
+        inputField.value = "";
+        charCounter.innerText = "0 / 2000";
     }
 });
 
-// Emergency Stealth Switch (Escape Key)
+// Emergency Stealth Switch (Escape)
 window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-        const app = document.getElementById('app-ui');
-        const mask = document.getElementById('math-cover');
-        if (app && mask) {
-            app.style.setProperty('display', 'none', 'important');
-            mask.style.display = "block";
-        }
+        document.getElementById('app-ui').style.setProperty('display', 'none', 'important');
+        document.getElementById('math-cover').style.display = "block";
     }
 });
 
-// Initialize on Load
 window.onload = initiateLogin;
