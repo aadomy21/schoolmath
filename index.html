@@ -71,9 +71,13 @@
         #message-container::-webkit-scrollbar {
             width: 8px;
         }
-        #message-container::-webkit-scrollbar-thumb {
-            background: #1e1f22;
-            border-radius: 4px;
+        #message-container {
+            flex-grow: 1;
+            overflow-y: auto;
+            overflow-x: hidden; /* Prevents horizontal scrolling if a link is too long */
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
         }
     </style>
 </head>
