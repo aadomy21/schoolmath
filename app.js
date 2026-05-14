@@ -1,6 +1,6 @@
 /**
  * SCHOOL - INTEGRATED ENGINE
- * Features: Admin/Self Delete, Replies, Context Menu, 12-Reaction Limit, DMs, Custom Emojis
+ * Features: Admin/Self Delete, Toggle Reactions (12-Limit), Custom Emojis, DMs, Stealth Escape
  */
 
 // --- 1. FIREBASE CONFIGURATION ---
@@ -72,19 +72,27 @@ window.addEventListener('contextmenu', (e) => {
 window.addEventListener('click', hideMenu);
 function hideMenu() { document.getElementById('context-menu').style.display = 'none'; }
 
-// --- 5. REACTION ENGINE ---
+// --- 5. UPDATED REACTION ENGINE (Toggle + 12 Unique Limit) ---
 function addReaction(msgId, emoji) {
-    const ref = db.ref(`${currentChatPath}/${msgId}/reactions`);
-    ref.once('value', (snap) => {
-        const reactions = snap.val() || {};
-        const uniqueEmojis = Object.keys(reactions);
-        
-        // Block if trying to add a 13th unique emoji
-        if (!reactions[emoji] && uniqueEmojis.length >= 12) {
-            alert("Maximum 12 unique reactions reached for this message.");
-            return;
+    const msgRef = db.ref(`${currentChatPath}/${msgId}/reactions`);
+    const userRef = db.ref(`${currentChatPath}/${msgId}/reactions/${emoji}/${myUsername}`);
+
+    msgRef.once('value', (snap) => {
+        const allReactions = snap.val() || {};
+        const uniqueEmojis = Object.keys(allReactions);
+        const hasReacted = allReactions[emoji] && allReactions[emoji][myUsername];
+
+        if (hasReacted) {
+            // UNREACT: Remove entry if user already clicked
+            userRef.remove();
+        } else {
+            // REACT: Block if trying to add a 13th unique emoji
+            if (!allReactions[emoji] && uniqueEmojis.length >= 12) {
+                alert("Maximum 12 unique reactions reached for this message.");
+                return;
+            }
+            userRef.set(true);
         }
-        ref.child(emoji).transaction(count => (count || 0) + 1);
     });
 }
 
@@ -94,11 +102,14 @@ function addReactionFromMenu(emoji) {
 }
 
 function openCustomEmoji() {
+    const mId = activeMsgId; // Keep reference after menu hides
     hideMenu();
-    const custom = prompt("Enter an emoji:");
-    if (custom && custom.trim().length > 0) {
-        addReaction(activeMsgId, custom.trim());
-    }
+    setTimeout(() => {
+        const custom = prompt("Enter an emoji:");
+        if (custom && custom.trim().length > 0) {
+            addReaction(mId, custom.trim());
+        }
+    }, 100);
 }
 
 // --- 6. MESSAGE HANDLERS ---
@@ -123,27 +134,26 @@ function renderMessage(msgId, data) {
 
     let reactionHTML = "";
     if (data.reactions) {
-        Object.entries(data.reactions).forEach(([emoji, count]) => {
-            reactionHTML += `
-                <div onclick="addReaction('${msgId}', '${emoji}')" style="background:#2B2D31; padding:2px 6px; border-radius:4px; font-size:11px; cursor:pointer; border:1px solid #4E5058; display:flex; align-items:center; gap:4px; margin-right:4px; margin-top:4px;">
-                    ${emoji} <span style="color:#ffffff;">${count}</span>
-                </div>`;
+        Object.entries(data.reactions).forEach(([emoji, users]) => {
+            const count = Object.keys(users).length;
+            if (count > 0) {
+                const activeStyle = users[myUsername] ? "border-color: #5865F2; background: #37393e;" : "";
+                reactionHTML += `
+                    <div onclick="addReaction('${msgId}', '${emoji}')" 
+                         style="background:#2B2D31; padding:2px 6px; border-radius:4px; font-size:11px; cursor:pointer; border:1px solid #4E5058; display:flex; align-items:center; gap:4px; margin-right:4px; margin-top:4px; ${activeStyle}">
+                        ${emoji} <span style="color:#ffffff;">${count}</span>
+                    </div>`;
+            }
         });
     }
 
     let replyHTML = data.replyingTo ? `<div style="font-size: 11px; color: #b5bac1; margin-bottom: 2px;">⮑ ${data.replyingTo.sender}: ${data.replyingTo.content.substring(0, 30)}...</div>` : "";
     
-    // Check for images
-    const isMedia = /(https?:\/\/.*\.(?:png|jpg|jpeg|gif|webp))/i.test(data.content);
-    const contentHTML = isMedia 
-        ? `<img src="${data.content}" style="max-width: 100%; max-height: 300px; border-radius: 8px; margin-top: 5px;">`
-        : `<div style="color: #dbdee1; font-size: 14px; white-space: pre-wrap; word-break: break-word;">${data.content}</div>`;
-
     div.innerHTML = `
         ${replyHTML}
         <div style="display: flex; flex-direction: column; width: 100%;">
             <span style="color: #5865F2; font-weight: bold; font-size: 14px;">${data.sender}</span>
-            ${contentHTML}
+            <div style="color: #dbdee1; font-size: 14px; white-space: pre-wrap; word-break: break-word;">${data.content}</div>
             <div style="display:flex; flex-wrap:wrap;">${reactionHTML}</div>
         </div>
     `;
@@ -205,7 +215,7 @@ inputField.addEventListener('keypress', (e) => {
     }
 });
 
-// ESCAPE HATCH
+// ESCAPE HATCH (Closes chat immediately)
 window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         document.getElementById('app-ui').style.setProperty('display', 'none', 'important');
