@@ -1,3 +1,14 @@
+/* --- ROOT VARIABLES FOR DISCORD PALETTE --- */
+:root {
+    --bg-dark: #1E1F22;
+    --bg-mid: #2B2D31;
+    --bg-light: #313338;
+    --accent: #5865F2;
+    --text-muted: #949BA4;
+    --text-normal: #DBDEE1;
+    --transition-speed: 0.2s;
+}
+
 /* --- RESET & BASE --- */
 * {
     margin: 0;
@@ -10,77 +21,90 @@ body, html {
     height: 100%;
     width: 100%;
     overflow: hidden;
-    background-color: #ffffff; /* Default white for the mask */
+    background-color: #ffffff; /* Default white mask for Calculus assignment */
 }
 
-/* --- THE APP CONTAINER (HIDDEN BY DEFAULT) --- */
+/* --- THE APP CONTAINER (FULL SCREEN REVEAL) --- */
 .app-container {
-    display: none !important; /* Managed by app.js revealApp() */
+    display: none !important; /* Managed by app.js logic */
     height: 100vh;
     width: 100vw;
-    background-color: #313338;
+    background-color: var(--bg-light);
     position: fixed;
     top: 0;
     left: 0;
-    z-index: 10001; /* Above the math mask */
+    z-index: 10001;
+    animation: fadeIn 0.3s ease-out; /* Smooth app entry */
 }
 
-/* --- MESSAGE STYLING --- */
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.98); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+/* --- SIDEBARS --- */
+nav {
+    width: 72px; 
+    background: var(--bg-dark); 
+    padding-top: 12px;
+    flex-shrink: 0;
+}
+
+aside {
+    width: 240px; 
+    background: var(--bg-mid); 
+    display: flex; 
+    flex-direction: column;
+    flex-shrink: 0;
+}
+
+.channel-link {
+    margin: 2px 8px;
+    padding: 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: all var(--transition-speed);
+    display: flex;
+    align-items: center;
+}
+
+.channel-link:hover {
+    background-color: #35373C;
+    color: var(--text-normal);
+}
+
+.channel-link.active {
+    background-color: #3F4147;
+    color: white;
+}
+
+/* --- MESSAGE AREA --- */
 #message-container {
     flex-grow: 1;
     overflow-y: auto;
-    padding: 20px;
+    padding: 20px 0;
     display: flex;
     flex-direction: column;
-    gap: 16px;
-}
-
-/* Custom Scrollbar for Chat */
-#message-container::-webkit-scrollbar {
-    width: 8px;
-}
-
-#message-container::-webkit-scrollbar-track {
-    background: #2b2d31;
-}
-
-#message-container::-webkit-scrollbar-thumb {
-    background: #1a1b1e;
-    border-radius: 4px;
+    scroll-behavior: smooth;
 }
 
 .msg-wrap {
     display: flex;
-    flex-direction: column;
     padding: 8px 16px;
-    border-radius: 4px;
-    transition: background 0.1s;
+    margin: 1px 0;
+    transition: background var(--transition-speed);
+    position: relative;
+    animation: slideIn 0.2s ease-out; /* Smooth message entry */
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateX(-5px); }
+    to { opacity: 1; transform: translateX(0); }
 }
 
 .msg-wrap:hover {
-    background-color: #2e3035;
-}
-
-/* --- SIDEBAR ICONS --- */
-.project-icon {
-    width: 48px;
-    height: 48px;
-    background-color: #313338;
-    color: #dbdee1;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 12px auto;
-    cursor: pointer;
-    font-weight: bold;
-    transition: all 0.2s;
-}
-
-.project-icon:hover, .project-icon.active {
-    background-color: #5865F2;
-    color: white;
-    border-radius: 16px;
+    background-color: #2E3035;
 }
 
 /* --- REACTION BUBBLES --- */
@@ -90,29 +114,61 @@ body, html {
     border-radius: 4px;
     font-size: 11px;
     cursor: pointer;
-    border: 1px solid #4e5058;
+    border: 1px solid transparent;
     display: flex;
     align-items: center;
     gap: 4px;
     margin-right: 4px;
     margin-top: 4px;
-    transition: border-color 0.1s;
+    transition: all 0.1s;
 }
 
 .reaction-bubble:hover {
     border-color: #949ba4;
+    background: #37393e;
 }
 
-/* --- CONTEXT MENU (Override/Additional) --- */
-#context-menu hr {
-    border: none;
-    border-bottom: 1px solid #2b2d31;
-    margin: 4px 0;
+/* --- CONTEXT MENU --- */
+#context-menu {
+    display: none;
+    position: absolute;
+    background: #111214;
+    border-radius: 4px;
+    padding: 8px 0;
+    width: 180px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    z-index: 10000;
+    border: 1px solid #2B2D31;
 }
 
-/* --- RESPONSIVE FIXES --- */
-@media (max-width: 600px) {
-    aside {
-        display: none; /* Hide channel list on small screens */
-    }
+.menu-item {
+    padding: 8px 12px;
+    color: #dbdee1;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.1s;
+}
+
+.menu-item:hover {
+    background-color: #4752c4;
+    color: white !important;
+}
+
+/* --- SCROLLBAR --- */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #1A1B1E; border-radius: 10px; }
+
+/* --- MATH COVER MASK --- */
+#math-cover {
+    padding: 60px;
+    font-family: 'Times New Roman', serif;
+    background-color: #ffffff;
+    color: #000000;
+    height: 100vh;
+    width: 100vw;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 9999;
 }
