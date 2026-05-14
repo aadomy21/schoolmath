@@ -1,6 +1,8 @@
-# School portal (Discord-style chat)
+# schoolmath
 
-## GitHub Pages (static site)
+I built this for our school community. Since the school Wi-Fi blocks Discord and other messaging apps, this bypasses those restrictions so we can chat when we bored or another classes.
+
+## School portal (Discord-style chat)
 
 This repo is **static HTML/CSS/JS**. On **GitHub Pages** there is no Node server, so the app uses **Firebase Realtime Database** for chat, presence, typing, and reactions (same Firebase project as auth).
 
