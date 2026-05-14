@@ -122,6 +122,18 @@ function renderMessage(data) {
     div.style.marginBottom = "15px";
     
     const time = new Date(data.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+    // Detection logic for Images/GIFs
+    const isMedia = /(https?:\/\/.*\.(?:png|jpg|jpeg|gif|webp))/i.test(data.content);
+    
+    let contentHTML = "";
+    if (isMedia) {
+        // If it's a link to a GIF or Image, render it as an actual image
+        contentHTML = `<img src="${data.content}" style="max-width: 300px; border-radius: 8px; margin-top: 5px; display: block;" onerror="this.src='https://via.placeholder.com/150?text=Invalid+Image+Link'">`;
+    } else {
+        // Otherwise, render as normal text
+        contentHTML = `<div style="color: #dbdee1; font-size: 14px; margin-top: 2px;">${data.content}</div>`;
+    }
     
     div.innerHTML = `
         <div style="display: flex; flex-direction: column;">
@@ -129,7 +141,7 @@ function renderMessage(data) {
                 <span style="color: #5865F2; font-weight: bold; font-size: 14px;">${data.sender}</span>
                 <span style="color: #949ba4; font-size: 10px;">${time}</span>
             </div>
-            <div style="color: #dbdee1; font-size: 14px; margin-top: 2px;">${data.content}</div>
+            ${contentHTML}
         </div>
     `;
     
