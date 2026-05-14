@@ -1,6 +1,6 @@
 /**
- * SCHOOL HUB - SECURE MULTIPLAYER ENGINE
- * Version: Media-Ready + Solo Admin + Flood Protection
+ * SCHOOL HUB - FULL ENGINE
+ * Features: Admin/Self Delete, Replies, Reactions, Real-time DM Routing
  */
 
 // --- 1. FIREBASE CONFIGURATION ---
@@ -18,12 +18,12 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const auth = firebase.auth();
 
-// --- 2. ADMIN IDENTITY ---
+// --- 2. IDENTITY & STATE ---
 const THE_ONLY_ADMIN = "aadomy21"; 
-
 let myUsername = "";
 let currentChatPath = "channels/general";
 let currentListener = null;
+let replyTo = null;
 
 // --- 3. GATEKEEPER ---
 function initiateLogin() {
@@ -36,16 +36,13 @@ function initiateLogin() {
                 myUsername = id.split('@')[0];
                 revealApp();
             })
-            .catch(() => {
-                console.warn("Access Denied.");
-            });
+            .catch(() => { console.warn("Unauthorized."); });
     }
 }
 
 function revealApp() {
     const mask = document.getElementById('math-cover');
     const app = document.getElementById('app-ui');
-    
     if (mask) mask.style.display = "none";
     if (app) app.style.setProperty('display', 'flex', 'important');
 
@@ -56,82 +53,95 @@ function revealApp() {
     listenForMessages("channels/general");
 }
 
-// --- 4. ADMIN COMMANDS ---
-function handleCommands(text) {
-    const args = text.split(" ");
-    const cmd = args[0].toLowerCase();
-
-    if (myUsername !== THE_ONLY_ADMIN) return false; 
-
-    if (cmd === "/invite") {
-        const target = args[1];
-        const pass = args[2];
-        if (!target || !pass) return true;
-        
-        db.ref('system/requests').push({ action: 'add', user: target, pass: pass, by: myUsername });
-        db.ref(`system/users/${target}`).set(true); 
-        return true;
+// --- 4. MESSAGE ACTIONS ---
+function deleteMessage(msgId) {
+    if (confirm("Delete this message?")) {
+        db.ref(`${currentChatPath}/${msgId}`).remove();
     }
-
-    if (cmd === "/ban") {
-        const target = args[1];
-        if (!target) return true;
-        db.ref(`system/users/${target}`).remove();
-        return true;
-    }
-
-    return false;
 }
 
-// --- 5. CHAT & MEDIA RENDERER ---
+function setReply(sender, content, msgId) {
+    replyTo = { sender, content, id: msgId };
+    const input = document.getElementById('console-input');
+    input.placeholder = `Replying to ${sender}...`;
+    input.focus();
+}
+
+function addReaction(msgId, emoji) {
+    const reactionRef = db.ref(`${currentChatPath}/${msgId}/reactions/${emoji}`);
+    reactionRef.transaction((count) => (count || 0) + 1);
+}
+
+// --- 5. RENDERER & LISTENER ---
 function listenForMessages(path) {
     const container = document.getElementById('message-container');
-    container.innerHTML = ""; 
-
     if (currentListener) db.ref(currentChatPath).off();
     currentChatPath = path;
 
-    currentListener = db.ref(path).limitToLast(50).on('child_added', (snap) => {
-        renderMessage(snap.val());
+    // Listen for entire value to handle deletions/reactions instantly
+    currentListener = db.ref(path).limitToLast(50).on('value', (snap) => {
+        container.innerHTML = "";
+        snap.forEach((child) => {
+            renderMessage(child.key, child.val());
+        });
+        container.scrollTop = container.scrollHeight;
     });
 }
 
-function renderMessage(data) {
+function renderMessage(msgId, data) {
     const container = document.getElementById('message-container');
+    const isMe = data.sender === myUsername;
+    const isAdmin = myUsername === THE_ONLY_ADMIN;
+
     const div = document.createElement('div');
-    div.style.marginBottom = "15px";
-    div.style.wordBreak = "break-word"; 
-    div.style.overflowWrap = "anywhere"; 
+    div.className = "msg-wrap";
+
+    // Build Reactions
+    let reactionHTML = "";
+    if (data.reactions) {
+        Object.entries(data.reactions).forEach(([emoji, count]) => {
+            reactionHTML += `<span style="background:#1E1F22; padding:2px 6px; border-radius:4px; font-size:11px; margin-right:4px; border: 1px solid #2B2D31;">${emoji} ${count}</span>`;
+        });
+    }
+
+    // Build Reply Preview
+    let replyHTML = data.replyingTo ? `<div class="reply-preview">⮑ ${data.replyingTo.sender}: ${data.replyingTo.content.substring(0, 40)}...</div>` : "";
 
     const time = new Date(data.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-    
-    // Media detection (Images/GIFs)
     const isMedia = /(https?:\/\/.*\.(?:png|jpg|jpeg|gif|webp))/i.test(data.content);
-    let contentHTML = isMedia 
-        ? `<img src="${data.content}" style="max-width: 100%; max-height: 400px; border-radius: 8px; margin-top: 5px; display: block;" onerror="this.style.display='none'">`
-        : `<div style="color: #dbdee1; font-size: 14px; margin-top: 2px; white-space: pre-wrap;">${data.content}</div>`;
     
+    let contentHTML = isMedia 
+        ? `<img src="${data.content}" style="max-width: 100%; max-height: 350px; border-radius: 8px; margin-top: 5px; display: block;">`
+        : `<div style="color: #dbdee1; font-size: 14px; white-space: pre-wrap;">${data.content}</div>`;
+
     div.innerHTML = `
+        ${replyHTML}
+        <div class="msg-actions">
+            <span class="action-btn" onclick="setReply('${data.sender}', '${data.content.replace(/'/g, "\\'")}', '${msgId}')">Reply</span>
+            <span class="action-btn" onclick="addReaction('${msgId}', '🔥')">🔥</span>
+            <span class="action-btn" onclick="addReaction('${msgId}', '👍')">👍</span>
+            ${(isMe || isAdmin) ? `<span class="action-btn" style="color:#f23f43;" onclick="deleteMessage('${msgId}')">Delete</span>` : ""}
+        </div>
         <div style="display: flex; flex-direction: column; width: 100%;">
             <div style="display: flex; align-items: baseline; gap: 8px;">
                 <span style="color: #5865F2; font-weight: bold; font-size: 14px;">${data.sender}</span>
                 <span style="color: #949ba4; font-size: 10px;">${time}</span>
             </div>
             ${contentHTML}
+            <div style="margin-top: 6px; display: flex; flex-wrap: wrap;">${reactionHTML}</div>
         </div>
     `;
     
     container.appendChild(div);
-    container.scrollTop = container.scrollHeight;
 }
 
+// --- 6. NAVIGATION & DMs ---
 function switchChat(target, type) {
     let path = (type === 'channel') ? `channels/${target}` : `dms/${[myUsername, target].sort().join('_')}`;
     document.getElementById('chat-title').innerText = (type === 'channel' ? target : `@${target}`);
     listenForMessages(path);
 }
 
-// --- 6. USER SYNC ---
 function syncUserList() {
     db.ref('system/users').on('value', (snap) => {
         const list = document.getElementById('dm-list');
@@ -152,7 +162,7 @@ function syncUserList() {
     db.ref(`system/users/${myUsername}`).set(true);
 }
 
-// --- 7. INPUT & STEALTH HANDLERS ---
+// --- 7. INPUT HANDLERS ---
 const inputField = document.getElementById('console-input');
 const charCounter = document.getElementById('char-count');
 
@@ -167,26 +177,20 @@ inputField.addEventListener('keypress', (e) => {
         const val = inputField.value.trim();
         if (!val) return;
 
-        if (val.startsWith("/")) {
-            if (handleCommands(val)) {
-                inputField.value = "";
-                charCounter.innerText = "0 / 2000";
-                return;
-            }
-        }
-
         db.ref(currentChatPath).push({
             sender: myUsername,
             content: val,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            replyingTo: replyTo
         });
         
         inputField.value = "";
+        replyTo = null;
+        inputField.placeholder = `Message #${currentChatPath.split('/').pop()}`;
         charCounter.innerText = "0 / 2000";
     }
 });
 
-// Emergency Stealth Switch (Escape)
 window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         document.getElementById('app-ui').style.setProperty('display', 'none', 'important');
