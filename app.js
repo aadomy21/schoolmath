@@ -121,22 +121,24 @@ function renderMessage(data) {
     const div = document.createElement('div');
     div.style.marginBottom = "15px";
     
-    const time = new Date(data.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    // This part ensures long messages wrap and don't break the UI
+    div.style.wordBreak = "break-word"; 
+    div.style.overflowWrap = "anywhere"; 
+    div.style.maxWidth = "100%";
 
-    // Detection logic for Images/GIFs
+    const time = new Date(data.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
     const isMedia = /(https?:\/\/.*\.(?:png|jpg|jpeg|gif|webp))/i.test(data.content);
     
     let contentHTML = "";
     if (isMedia) {
-        // If it's a link to a GIF or Image, render it as an actual image
-        contentHTML = `<img src="${data.content}" style="max-width: 300px; border-radius: 8px; margin-top: 5px; display: block;" onerror="this.src='https://via.placeholder.com/150?text=Invalid+Image+Link'">`;
+        contentHTML = `<img src="${data.content}" style="max-width: 100%; max-height: 400px; border-radius: 8px; margin-top: 5px; display: block;" onerror="this.src='https://via.placeholder.com/150?text=Invalid+Image+Link'">`;
     } else {
-        // Otherwise, render as normal text
-        contentHTML = `<div style="color: #dbdee1; font-size: 14px; margin-top: 2px;">${data.content}</div>`;
+        // The "white-space: pre-wrap" preserves line breaks if they paste an essay
+        contentHTML = `<div style="color: #dbdee1; font-size: 14px; margin-top: 2px; white-space: pre-wrap;">${data.content}</div>`;
     }
     
     div.innerHTML = `
-        <div style="display: flex; flex-direction: column;">
+        <div style="display: flex; flex-direction: column; width: 100%;">
             <div style="display: flex; align-items: baseline; gap: 8px;">
                 <span style="color: #5865F2; font-weight: bold; font-size: 14px;">${data.sender}</span>
                 <span style="color: #949ba4; font-size: 10px;">${time}</span>
