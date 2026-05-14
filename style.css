@@ -1,0 +1,208 @@
+/* --- COSMIC HUB CORE STYLES --- */
+
+:root {
+  /* Discord Brand Colors 2026 */
+  --bg-darkest: #1e1f22;
+  /* Project Rail */
+  --bg-dark: #2b2d31;
+  /* File Sidebar */
+  --bg-medium: #313338;
+  /* Main Content */
+  --bg-light: #383a40;
+  /* Input Boxes */
+  --text-primary: #f2f3f5;
+  --text-muted: #949ba4;
+  --online-green: #23a55a;
+  --error-red: #f23f43;
+  --blurple: #5865f2;
+}
+
+body,
+html {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: 'gg sans', 'Noto Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  background-color: var(--bg-darkest);
+  color: var(--text-primary);
+  overflow: hidden;
+}
+
+.app-container {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* --- 1. PROJECT RAIL (LEFT) --- */
+.project-sidebar {
+  width: 72px;
+  background-color: var(--bg-darkest);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 12px;
+  gap: 8px;
+}
+
+.project-icon {
+  width: 48px;
+  height: 48px;
+  background-color: var(--bg-medium);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  color: var(--text-primary);
+}
+
+.project-icon:hover,
+.project-icon.active {
+  border-radius: 16px;
+  background-color: var(--blurple);
+}
+
+.project-separator {
+  width: 32px;
+  height: 2px;
+  background-color: var(--bg-light);
+  margin: 4px 0;
+}
+
+/* --- 2. FILE SIDEBAR (MIDDLE) --- */
+.file-sidebar {
+  width: 240px;
+  background-color: var(--bg-dark);
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-header {
+  height: 48px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  font-weight: bold;
+  font-size: 14px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.file-category {
+  padding: 18px 8px 4px 16px;
+  font-size: 12px;
+  font-weight: bold;
+  color: var(--text-muted);
+}
+
+.file-item {
+  margin: 2px 8px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.file-item:hover {
+  background-color: var(--bg-light);
+  color: var(--text-primary);
+}
+
+.file-hash {
+  color: var(--text-muted);
+  font-weight: normal;
+}
+
+/* --- 3. MAIN CONTENT (RIGHT) --- */
+.content-area {
+  flex: 1;
+  background-color: var(--bg-medium);
+  display: flex;
+  flex-direction: column;
+}
+
+.content-header {
+  height: 48px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.header-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: bold;
+}
+
+.hashtag {
+  color: var(--text-muted);
+  font-size: 20px;
+}
+
+#connection-status {
+  font-size: 12px;
+  font-weight: bold;
+  color: var(--text-muted);
+}
+
+/* --- CODE VIEWER --- */
+.code-viewer {
+  flex: 1;
+  padding: 16px;
+  display: flex;
+  gap: 16px;
+  overflow-y: auto;
+  font-family: 'Consolas', 'Courier New', monospace;
+}
+
+.line-numbers {
+  display: flex;
+  flex-direction: column;
+  text-align: right;
+  color: var(--text-muted);
+  user-select: none;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+#code-display {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #dbdee1;
+  white-space: pre-wrap;
+}
+
+/* --- INPUT BAR --- */
+.input-area {
+  padding: 0 16px 24px 16px;
+}
+
+.input-wrapper {
+  background-color: var(--bg-light);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+#console-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  outline: none;
+  font-size: 14px;
+}
+
+#console-input::placeholder {
+  color: var(--text-muted);
+}

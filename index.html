@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>School Math Project</title>
+
+  <!-- Firebase Compat SDKs (Required for app.js logic) -->
+  <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-auth-compat.js"></script>
+
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* Global layout to ensure the hub fills the school terminal window */
+    body,
+    html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      background-color: #1E1F22;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .app-container {
+      display: flex;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    /* Scrollbar styling for a cleaner terminal look */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #2B2D31;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #1E1F22;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="app-container">
+    <!-- 1. PROJECT RAIL (Left Nav) -->
+    <nav class="project-sidebar">
+      <div class="project-icon active" onclick="switchProject('Botc')" title="Battle of the Cosmics">B</div>
+      <div class="project-icon" onclick="switchProject('HexWreck')" title="Hex Wreck">H</div>
+      <div class="project-icon" onclick="switchProject('GlorySMP')" title="Glory SMP">G</div>
+      <div class="project-separator"></div>
+      <div class="project-icon plus" title="Add New Project">+</div>
+    </nav>
+
+    <!-- 2. REPOSITORY SIDEBAR (Channels/Files) -->
+    <aside class="file-sidebar">
+      <header class="sidebar-header">
+        REPOSITORY: <span id="current-project-name">Botc</span>
+      </header>
+      <div class="file-category">📁 SOURCE FILES</div>
+      <div id="file-list">
+        <!-- File list items injected dynamically by app.js -->
+      </div>
+    </aside>
+
+    <!-- 3. MAIN TERMINAL (Chat/Command Area) -->
+    <main class="content-area">
+      <header class="content-header">
+        <div class="header-info">
+          <span class="hashtag">#</span>
+          <span id="active-file-name">secure-terminal</span>
+        </div>
+        <div id="connection-status">
+          SYSTEM: <span id="status-text" style="color: #f23f43;">CONNECTING...</span>
+        </div>
+      </header>
+
+      <!-- Real-time Message Display -->
+      <section class="message-container" id="message-container">
+        <div class="system-message">-- INITIALIZING SECURE CONNECTION --</div>
+        <div class="system-message">-- AWAITING ADMINISTRATOR LOGIN --</div>
+      </section>
+
+      <!-- Stealth Console Input (Disguised as a Message Bar) -->
+      <div class="input-area">
+        <div class="input-wrapper">
+          <input type="text" id="console-input" placeholder="Execute command or send message..." autocomplete="off">
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Main Logic Script -->
+  <script src="app.js"></script>
+</body>
+
+</html>
