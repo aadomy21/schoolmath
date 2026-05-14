@@ -1,6 +1,6 @@
 /**
- * COSMIC HUB - MULTIPLAYER SCHOOL MESSAGING
- * Database: schoolmathpart
+ * SCHOOL HUB - SECURE MULTIPLAYER ENGINE
+ * Version: Solo Admin + Stealth Gatekeeper
  */
 
 // --- 1. FIREBASE CONFIGURATION ---
@@ -14,177 +14,213 @@ const firebaseConfig = {
     appId: "1:525859836367:web:843e220ad112d5327e02ba"
 };
 
-// Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const auth = firebase.auth();
 
-// --- 2. GLOBAL STATE ---
+// --- 2. THE MASTER KEY ---
+// Replace this with your actual username (the prefix of your email)
+const THE_ONLY_ADMIN = "aadomy21"; 
+
+let myUsername = "";
 let currentChatPath = "channels/general";
 let currentListener = null;
-let myUsername = "";
 
-/**
- * RECIPIENTS: Add the usernames (the prefix before @ in Firebase Auth)
- * of people you want to show up in your DM list.
- */
-const friends = ["mr_chaos", "BJodfuo", "teammate_1"]; 
+// --- 3. GATEKEEPER LOGIC ---
+function initiateLogin() {
+    const id = prompt("Student Portal ID:");
+    const key = prompt("Portal Access Key:");
 
-// --- 3. THE GATEKEEPER ---
+    if (id && key) {
+        auth.signInWithEmailAndPassword(id, key)
+            .then(() => {
+                myUsername = id.split('@')[0];
+                revealApp();
+            })
+            .catch((err) => {
+                console.warn("Unauthorized access attempt.");
+                // Keeps math mask visible
+            });
+    }
+}
 
-function unlockDashboard() {
-    const email = prompt("Enter Student Email:");
-    const password = prompt("Enter Access Key:");
+function revealApp() {
+    // Remove the math mask and show the app
+    const mask = document.getElementById('math-cover');
+    const app = document.getElementById('app-ui');
+    
+    if (mask) mask.style.display = "none";
+    if (app) app.style.setProperty('display', 'flex', 'important');
 
-    if (!email || !password) {
-        showMathCover();
-        return;
+    document.getElementById('status-text').innerText = "ONLINE";
+    document.getElementById('status-text').style.color = "#23a55a";
+
+    syncUserList();
+    listenForMessages("channels/general");
+}
+
+// --- 4. ADMIN POWER ENGINE ---
+function handleCommands(text) {
+    const args = text.split(" ");
+    const cmd = args[0].toLowerCase();
+
+    // Security Check: Block non-admins from system commands
+    if (myUsername !== THE_ONLY_ADMIN) {
+        return false; 
     }
 
-    auth.signInWithEmailAndPassword(email, password)
-        .then((userCredential) => {
-            myUsername = email.split('@')[0];
-            
-            // UI Reveal
-            document.getElementById('app-ui').style.display = "flex";
-            document.getElementById('math-cover').style.display = "none";
-            document.getElementById('status-text').innerText = "ONLINE";
-            document.getElementById('status-text').style.color = "#23a55a";
-            
-            // Initialization
-            loadDMs();
-            switchChat('general', 'channel');
-        })
-        .catch((error) => {
-            console.error("Login Failed:", error.message);
-            showMathCover();
-        });
-}
-
-function showMathCover() {
-    document.getElementById('app-ui').style.display = "none";
-    document.getElementById('math-cover').style.display = "block";
-}
-
-// --- 4. CHAT & MESSAGE LOGIC ---
-
-/**
- * Switches between global school channels and private DMs
- */
-function switchChat(target, type) {
-    let path = "";
-    const titleElement = document.getElementById('chat-title');
-    const inputElement = document.getElementById('console-input');
-
-    if (type === 'channel') {
-        path = `channels/${target}`;
-        titleElement.innerText = target;
-        inputElement.placeholder = `Message #${target}...`;
-    } else {
-        // DM Logic: Create a unique room ID by sorting names alphabetically
-        const pair = [myUsername, target].sort();
-        path = `dms/${pair[0]}_${pair[1]}`;
-        titleElement.innerText = `@${target}`;
-        inputElement.placeholder = `Message @${target}...`;
+    if (cmd === "/invite") {
+        const target = args[1];
+        const pass = args[2];
+        if (!target || !pass) {
+            alert("Usage: /invite [user] [pass]");
+            return true;
+        }
+        
+        // Push to database for your records and add to global user list
+        db.ref('system/requests').push({ action: 'add', user: target, pass: pass, by: myUsername });
+        db.ref(`system/users/${target}`).set(true); 
+        alert(`Access granted for ${target}. Create their email/pass in Firebase Auth to finish.`);
+        return true;
     }
 
-    listenForMessages(path);
+    if (cmd === "/ban") {
+        const target = args[1];
+        if (!target) return true;
+
+        db.ref('system/requests').push({ action: 'remove', user: target, by: myUsername });
+        db.ref(`system/users/${target}`).remove();
+        alert(`User ${target} access revoked.`);
+        return true;
+    }
+
+    return false;
 }
 
-/**
- * Real-time listener: The core "multiplayer" engine
- */
+// --- 5. CHAT ENGINE ---
 function listenForMessages(path) {
     const container = document.getElementById('message-container');
-    container.innerHTML = ""; // Clear for new chat
+    container.innerHTML = ""; // Clear view for new channel
 
-    // Remove existing listener to save performance/avoid duplicates
+    // Clean up old listener
     if (currentListener) {
         db.ref(currentChatPath).off();
     }
 
     currentChatPath = path;
 
-    // Listen for new children (messages) in the specific database path
-    currentListener = db.ref(path).limitToLast(50).on('child_added', (snapshot) => {
-        const data = snapshot.val();
-        renderMessage(data);
+    // "Multiplayer" listener - triggers for every user when a message is added
+    currentListener = db.ref(path).limitToLast(50).on('child_added', (snap) => {
+        const d = snap.val();
+        renderMessage(d);
     });
 }
 
 function renderMessage(data) {
     const container = document.getElementById('message-container');
-    const msgDiv = document.createElement('div');
-    msgDiv.className = "message-entry";
+    const div = document.createElement('div');
+    div.style.marginBottom = "15px";
     
     const time = new Date(data.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
     
-    // Discord-style formatting
-    msgDiv.innerHTML = `
-        <div style="margin-bottom: 8px;">
-            <b style="color: #5865F2; margin-right: 5px;">${data.sender}</b>
-            <small style="color: #949ba4; font-size: 11px;">${time}</small>
-            <div style="color: #dbdee1; margin-top: 2px;">${data.content}</div>
+    div.innerHTML = `
+        <div style="display: flex; flex-direction: column;">
+            <div style="display: flex; align-items: baseline; gap: 8px;">
+                <span style="color: #5865F2; font-weight: bold; font-size: 14px;">${data.sender}</span>
+                <span style="color: #949ba4; font-size: 10px;">${time}</span>
+            </div>
+            <div style="color: #dbdee1; font-size: 14px; margin-top: 2px;">${data.content}</div>
         </div>
     `;
     
-    container.appendChild(msgDiv);
-    container.scrollTop = container.scrollHeight; // Keep chat at the bottom
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
 }
 
-function sendMessage(text) {
-    if (!text.trim()) return;
+function switchChat(target, type) {
+    let path = "";
+    const title = document.getElementById('chat-title');
 
-    const messageData = {
-        sender: myUsername,
-        content: text,
-        timestamp: Date.now()
-    };
+    if (type === 'channel') {
+        path = `channels/${target}`;
+        title.innerText = target;
+    } else {
+        // DM Logic: Sorts names to ensure both users enter the same private path
+        const pair = [myUsername, target].sort();
+        path = `dms/${pair[0]}_${pair[1]}`;
+        title.innerText = `@${target}`;
+    }
 
-    // Push message to current Firebase path
-    db.ref(currentChatPath).push(messageData);
+    listenForMessages(path);
 }
 
-// --- 5. UI POPULATION ---
-
-function loadDMs() {
-    const dmList = document.getElementById('dm-list');
-    dmList.innerHTML = "";
-
-    friends.forEach(friend => {
-        if (friend !== myUsername) { // Don't DM yourself
-            const div = document.createElement('div');
-            div.className = "file-item";
-            div.style.cssText = "padding: 8px; cursor: pointer; color: #949ba4;";
-            div.innerHTML = `<span style="margin-right: 5px;">@</span> ${friend}`;
-            div.onclick = () => switchChat(friend, 'dm');
-            
-            // Hover effect
-            div.onmouseover = () => div.style.backgroundColor = "#35373c";
-            div.onmouseout = () => div.style.backgroundColor = "transparent";
-            
-            dmList.appendChild(div);
-        }
+// --- 6. USER SYNCING ---
+function syncUserList() {
+    // Automatically updates the DM sidebar for everyone when you invite/ban someone
+    db.ref('system/users').on('value', (snap) => {
+        const list = document.getElementById('dm-list');
+        list.innerHTML = "";
+        
+        snap.forEach(userSnap => {
+            const name = userSnap.key;
+            if (name !== myUsername) {
+                const item = document.createElement('div');
+                item.style.padding = "8px";
+                item.style.margin = "2px 0";
+                item.style.borderRadius = "4px";
+                item.style.cursor = "pointer";
+                item.style.color = "#949ba4";
+                item.innerText = `# ${name}`;
+                
+                item.onclick = () => switchChat(name, 'dm');
+                item.onmouseover = () => item.style.backgroundColor = "#35373c";
+                item.onmouseout = () => item.style.backgroundColor = "transparent";
+                
+                list.appendChild(item);
+            }
+        });
     });
+
+    // Ensure your own name is in the registry
+    db.ref(`system/users/${myUsername}`).set(true);
 }
 
-// --- 6. GLOBAL EVENT LISTENERS ---
-
-// Handle Enter key for sending messages
+// --- 7. EVENT LISTENERS ---
 document.getElementById('console-input').addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
-        sendMessage(e.target.value);
+        const val = e.target.value.trim();
+        if (!val) return;
+
+        // Process admin commands
+        if (val.startsWith("/")) {
+            if (handleCommands(val)) {
+                e.target.value = "";
+                return;
+            }
+        }
+
+        // Send normal message
+        db.ref(currentChatPath).push({
+            sender: myUsername,
+            content: val,
+            timestamp: Date.now()
+        });
+        
         e.target.value = "";
     }
 });
 
-// Panic Escape Key (Instantly hide app)
+// Emergency Stealth Switch (Escape Key)
 window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-        showMathCover();
-        document.title = "Math Assignment - Term 3";
+        const app = document.getElementById('app-ui');
+        const mask = document.getElementById('math-cover');
+        if (app && mask) {
+            app.style.setProperty('display', 'none', 'important');
+            mask.style.display = "block";
+        }
     }
 });
 
-// Run Gatekeeper on load
-window.onload = unlockDashboard;
+// Initialize on Load
+window.onload = initiateLogin;
