@@ -5,14 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Calculus III - Assignment 4</title>
 
-    <!-- Firebase Compat SDKs: Required for the auth and database logic in app.js -->
+    <!-- Firebase Compat SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-auth-compat.js"></script>
 
     <link rel="stylesheet" href="style.css">
     <style>
-        /* Base Reset */
         body, html { 
             margin: 0; 
             padding: 0; 
@@ -21,8 +20,7 @@
             overflow: hidden; 
         }
 
-        /* 1. THE MATH MASK (Default Visible Layer) */
-        /* This is the only thing a teacher or outsider will see. */
+        /* 1. THE MATH MASK (Stealth Layer) */
         #math-cover { 
             padding: 60px; 
             font-family: 'Times New Roman', serif; 
@@ -33,12 +31,11 @@
             position: absolute;
             top: 0;
             left: 0;
-            z-index: 9999; /* Keeps the mask on top of everything */
+            z-index: 9999;
             display: block;
         }
 
-        /* 2. THE CHAT HUB (Member Layer) */
-        /* Forced hidden with !important to prevent flashing during load. */
+        /* 2. THE CHAT HUB (Hidden Layer) */
         #app-ui { 
             display: none !important; 
             height: 100vh; 
@@ -47,7 +44,16 @@
             flex-direction: row;
         }
 
-        /* Navigation Icon Styling */
+        /* Messaging Layout & Flooding Prevention */
+        #message-container {
+            flex-grow: 1;
+            overflow-y: auto;
+            overflow-x: hidden; /* Prevents horizontal flooding from long links */
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
         .project-icon {
             width: 48px;
             height: 48px;
@@ -67,23 +73,19 @@
             background-color: #5865F2;
         }
 
-        /* Scannability for the chat container */
+        /* Custom Scrollbar for Hub */
         #message-container::-webkit-scrollbar {
             width: 8px;
         }
-        #message-container {
-            flex-grow: 1;
-            overflow-y: auto;
-            overflow-x: hidden; /* Prevents horizontal scrolling if a link is too long */
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
+        #message-container::-webkit-scrollbar-thumb {
+            background: #1e1f22;
+            border-radius: 4px;
         }
     </style>
 </head>
 <body>
 
-    <!-- VISIBLE TO TEACHERS/OUTSIDERS -->
+    <!-- VISIBLE TO TEACHERS -->
     <div id="math-cover">
         <h1 style="font-size: 24pt;">Worksheet 4.2: Differential Equations</h1>
         <hr style="border: 1px solid black;">
@@ -92,68 +94,60 @@
         <div style="margin-top: 40px; line-height: 1.6;">
             <p>1. Solve for the general solution of the differential equation: $dy/dx = 3x^2 + 4x - 5$.</p>
             <p>2. Using L'Hôpital's Rule, evaluate the following limit: $\lim_{x \to \infty} \frac{2x+5}{3x-2}$.</p>
-            <p>3. Find the local extrema for the function $f(x) = x^3 - 3x + 2$ on the interval $[-2, 2]$.</p>
+            <p>3. Find the local extrema for the function $f(x) = x^3 - 3x + 2$.</p>
         </div>
 
-        <div style="margin-top: 150px; color: #f0f0f0; font-size: 10pt;">
-            [System Handshake: Student Portal Authentication Required to View Full Assignment]
+        <div style="margin-top: 150px; color: #f9f9f9; font-size: 10pt;">
+            [System: Portal Authentication Required]
         </div>
     </div>
 
-    <!-- REVEALED TO MEMBERS ONLY -->
+    <!-- REVEALED ON LOGIN -->
     <div id="app-ui" class="app-container">
-        <!-- Sidebar: Discord-style Icons -->
+        <!-- Sidebar: Navigation -->
         <nav style="width: 72px; background: #1E1F22; flex-shrink: 0; border-right: 1px solid #2B2D31;">
-            <div class="project-icon active" title="School Hub">S</div>
-            <div style="height: 2px; width: 32px; background: #313338; margin: 10px auto;"></div>
-            <div class="project-icon" title="Add Server" style="color: #23a55a;">+</div>
+            <div class="project-icon active">S</div>
         </nav>
 
-        <!-- Sidebar: Channels and DMs -->
+        <!-- Sidebar: Channels & Users -->
         <aside style="width: 240px; background: #2B2D31; display: flex; flex-direction: column; color: white;">
-            <header style="padding: 15px; font-weight: bold; border-bottom: 1px solid #1E1F22; box-shadow: 0 1px 2px rgba(0,0,0,0.2);">
-                SCHOOL HUB
-            </header>
+            <header style="padding: 15px; font-weight: bold; border-bottom: 1px solid #1E1F22;">SCHOOL HUB</header>
             
             <div style="padding: 10px; overflow-y: auto;">
-                <div style="color: #949ba4; font-size: 11px; font-weight: bold; margin: 15px 0 5px 5px; text-transform: uppercase;">Text Channels</div>
-                <div onclick="switchChat('general', 'channel')" style="padding: 8px; border-radius: 4px; cursor: pointer; color: #949ba4;" onmouseover="this.style.backgroundColor='#35373c'; this.style.color='white'" onmouseout="this.style.backgroundColor='transparent'; this.style.color='#949ba4'"># general</div>
-                <div onclick="switchChat('homework', 'channel')" style="padding: 8px; border-radius: 4px; cursor: pointer; color: #949ba4;" onmouseover="this.style.backgroundColor='#35373c'; this.style.color='white'" onmouseout="this.style.backgroundColor='transparent'; this.style.color='#949ba4'"># homework</div>
-
+                <div style="color: #949ba4; font-size: 11px; font-weight: bold; margin: 15px 0 5px 5px; text-transform: uppercase;">Channels</div>
+                <div onclick="switchChat('general', 'channel')" style="padding: 8px; border-radius: 4px; cursor: pointer; color: #949ba4;"># general</div>
+                
                 <div style="color: #949ba4; font-size: 11px; font-weight: bold; margin: 25px 0 5px 5px; text-transform: uppercase;">Direct Messages</div>
-                <div id="dm-list">
-                    <!-- Populated dynamically by app.js -->
-                </div>
+                <div id="dm-list"></div>
             </div>
         </aside>
 
-        <!-- Chat Area -->
+        <!-- Main Chat Area -->
         <main style="flex-grow: 1; background: #313338; display: flex; flex-direction: column; color: white;">
-            <header style="padding: 15px; border-bottom: 1px solid #1E1F22; display: flex; justify-content: space-between; align-items: center;">
-                <div style="font-weight: bold;">
-                    <span style="color: #949ba4; margin-right: 5px;">#</span><span id="chat-title">general</span>
-                </div>
-                <div id="connection-status" style="font-size: 11px;">
-                    SYSTEM: <span id="status-text" style="color: #f23f43;">OFFLINE</span>
-                </div>
+            <header style="padding: 15px; border-bottom: 1px solid #1E1F22; display: flex; justify-content: space-between;">
+                <div style="font-weight: bold;"># <span id="chat-title">general</span></div>
+                <div style="font-size: 11px;">STATUS: <span id="status-text" style="color: #f23f43;">OFFLINE</span></div>
             </header>
 
-            <!-- Real-time Message Feed -->
-            <section id="message-container" style="flex-grow: 1; overflow-y: auto; padding: 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
-                <!-- Messages injected here -->
+            <section id="message-container">
+                <!-- Messages populate here via app.js -->
             </section>
 
-            <!-- Console Input -->
+            <!-- Input Section with 2,000 Char Limit -->
             <div style="padding: 20px;">
                 <div style="background: #383A40; border-radius: 8px; padding: 10px 15px;">
-                    <input type="text" id="console-input" placeholder="Message #general" autocomplete="off" 
+                    <input type="text" id="console-input" 
+                           placeholder="Message #general" 
+                           maxlength="2000"
+                           autocomplete="off" 
                            style="width: 100%; background: transparent; border: none; color: white; outline: none; font-size: 14px;">
                 </div>
+                <!-- Character Counter -->
+                <div id="char-count" style="color: #949ba4; font-size: 10px; text-align: right; margin-top: 5px;">0 / 2000</div>
             </div>
         </main>
     </div>
 
-    <!-- Main Application Logic -->
     <script src="app.js"></script>
 </body>
 </html>
