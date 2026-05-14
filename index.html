@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calculus III - Assignment 4</title>
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Firebase Compat SDKs (auth only; real-time chat uses Socket.io) -->
+  <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-auth-compat.js"></script>
+
+  <!-- Socket.io client (served by local Node server) -->
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+
+<body>
+
+  <!-- ================================================================
+     STEALTH MASK — Worksheet 4.2
+================================================================ -->
+  <div id="math-cover">
+    <h1>Dover American International School</h1>
+    <h2>Mathematics Department &mdash; Calculus III (Grade 10)</h2>
+    <hr>
+
+    <div class="meta">
+      <span>Student Name: <span class="line"></span></span>
+      <span>Date: <span class="line line--date">May 14, 2026</span></span>
+      <span>Period: <span class="line line--period"></span></span>
+    </div>
+
+    <h2 class="worksheet-subtitle">Worksheet 4.2 — Differential Equations &amp;
+      Applications</h2>
+
+    <div class="instructions">
+      <strong>Directions:</strong> Answer all questions. Show all work in the space provided for full credit.
+      Calculators are permitted for Part B only. Write your final answers in the boxes where indicated.
+      Total: 50 points &mdash; Time allowed: 45 minutes.
+    </div>
+
+    <div class="section-title">Part A &mdash; Analytical Solutions (No Calculator) &nbsp;[24 pts]</div>
+    <ol>
+      <li>
+        Find the general solution of the differential equation: &nbsp;
+        <i>dy/dx = 3x<sup>2</sup> + 4x &minus; 5</i>
+      </li>
+      <div class="work-box"></div>
+
+      <li>
+        Using L'Hôpital's Rule, evaluate: &nbsp;
+        lim<sub>x&rarr;&infin;</sub> (2x + 5)/(3x &minus; 2)
+      </li>
+      <div class="work-box"></div>
+
+      <li>
+        Find all local extrema of &nbsp;<i>f(x) = x<sup>3</sup> &minus; 3x + 2</i>.
+        Classify each as a local max or local min using the Second Derivative Test.
+      </li>
+      <div class="work-box"></div>
+
+      <li>
+        Solve the initial value problem: &nbsp;
+        <i>dy/dx = 2xy</i>,&nbsp; <i>y(0) = 3</i>.
+      </li>
+      <div class="work-box"></div>
+    </ol>
+
+    <div class="section-title">Part B &mdash; Conceptual &amp; Applied (Calculator Allowed) &nbsp;[26 pts]</div>
+    <ol start="5">
+      <li>
+        Explain the concept of a <strong>Direction Field</strong> in the context of first-order ODEs.
+        Describe how it is constructed and how it is used to approximate solutions. <em>(6 pts)</em>
+      </li>
+      <div class="work-box work-box--tall"></div>
+
+      <li>
+        A population <i>P(t)</i> satisfies <i>dP/dt = 0.03P(1 &minus; P/500)</i>.
+        If <i>P(0) = 50</i>, find the population as <i>t &rarr; &infin;</i> and the point of fastest growth. <em>(10
+          pts)</em>
+      </li>
+      <div class="work-box work-box--med"></div>
+
+      <li>
+        Sketch the direction field for <i>y&prime; = y &minus; x</i> over [&minus;2, 2] &times; [&minus;2, 2]
+        and draw the solution curve through (0, 1). <em>(10 pts)</em>
+      </li>
+      <div class="work-box work-box--xl"></div>
+    </ol>
+
+    <table class="grade-table">
+      <tr>
+        <th>Part A</th>
+        <th>Part B</th>
+        <th>Total</th>
+        <th>Grade</th>
+      </tr>
+      <tr>
+        <td>/24</td>
+        <td>/26</td>
+        <td>/50</td>
+        <td></td>
+      </tr>
+    </table>
+
+    <footer-note>Worksheet 4.2 &mdash; Calculus III &mdash; DAIS 2026 &mdash; Do not reproduce without
+      permission.</footer-note>
+  </div>
+
+  <!-- ================================================================
+     LOGIN MODAL
+================================================================ -->
+  <div id="login-overlay">
+    <div class="login-card">
+      <div class="lc-logo">S</div>
+      <h3>Welcome back!</h3>
+      <p>We're excited to see you again!</p>
+      <div class="err-msg" id="login-err"></div>
+
+      <label for="li-email">Student Portal ID</label>
+      <input type="email" id="li-email" placeholder="your.id@school.com" autocomplete="username">
+
+      <label for="li-pass">Portal Access Key</label>
+      <input type="password" id="li-pass" placeholder="••••••••" autocomplete="current-password">
+
+      <button class="login-btn" id="li-btn" onclick="handleLogin()">Log In</button>
+    </div>
+  </div>
+
+  <!-- ================================================================
+     THE APP — Hidden Behind Mask
+================================================================ -->
+  <div id="app-ui">
+
+    <!-- Server/Nav strip (populated by app.js) -->
+    <div id="nav-strip">
+      <div id="nav-strip-inner"></div>
+      <div class="server-icon server-icon-add" id="btn-create-guild" title="Add a Server">+</div>
+      <div class="server-icon server-icon-add" id="btn-join-guild" title="Join with invite">⇩</div>
+      <div class="nav-divider"></div>
+    </div>
+
+    <!-- Channel Sidebar -->
+    <aside id="sidebar">
+      <div id="sidebar-header">
+        SCHOOL PORTAL
+        <svg class="icon-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </div>
+
+      <div class="sidebar-scroll">
+        <!-- Text Channels -->
+        <div id="guild-channels-root"></div>
+
+        <!-- Direct Messages -->
+        <div class="sidebar-section-title sidebar-section-title--spaced">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10">
+            <polyline points="6 9 12 3 18 9"></polyline>
+          </svg>
+          Direct Messages
+        </div>
+        <div id="dm-list" class="dm-list-wrap"></div>
+      </div>
+
+      <div id="sidebar-footer-actions" class="sidebar-footer-actions hidden">
+        <button type="button" class="sidebar-action-btn" id="btn-create-channel">+ Create channel</button>
+      </div>
+
+      <!-- User Panel -->
+      <div id="user-panel">
+        <div id="user-avatar" title="Your profile"></div>
+        <div id="user-info">
+          <div id="my-name-display">User</div>
+          <div id="status-text">Offline</div>
+        </div>
+        <div class="user-panel-icons">
+          <!-- Mic -->
+          <div class="up-icon" title="Microphone" id="btn-mic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+              <line x1="12" y1="19" x2="12" y2="23" />
+              <line x1="8" y1="23" x2="16" y2="23" />
+            </svg>
+          </div>
+          <!-- Deafen -->
+          <div class="up-icon" title="Headset">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
+              <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z" />
+              <path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
+            </svg>
+          </div>
+          <!-- Settings -->
+          <div class="up-icon" title="Settings">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3" />
+              <path
+                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Chat -->
+    <div id="chat-main">
+      <div id="chat-header">
+        <span class="ch-prefix">#</span>
+        <span id="chat-title">general</span>
+        <span class="topic" id="chat-topic">Welcome to #general</span>
+        <div class="header-icons">
+          <!-- Members toggle -->
+          <div class="up-icon" title="Members" onclick="toggleMembers()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+          </div>
+          <!-- Search -->
+          <div class="up-icon" title="Search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Messages -->
+      <div id="message-container">
+        <!-- Populated by app.js -->
+      </div>
+
+      <!-- Typing -->
+      <div id="typing-indicator"></div>
+
+      <!-- Input -->
+      <div id="input-bar">
+        <div id="attachment-strip" class="attachment-strip hidden" aria-live="polite"></div>
+        <div id="reply-banner" aria-live="polite">
+          Replying to <span id="reply-name-label"></span>
+          <span class="close-reply" onclick="cancelReply()">✕</span>
+        </div>
+        <div id="input-wrap">
+          <div id="input-buttons-left">
+            <input type="file" id="file-attach-input" class="visually-hidden" accept="image/*,.pdf,.doc,.docx,.txt,.zip" multiple>
+            <!-- Add attachment -->
+            <div class="input-icon" title="Upload file" id="btn-attach-file">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="16" />
+                <line x1="8" y1="12" x2="16" y2="12" />
+              </svg>
+            </div>
+          </div>
+
+          <input type="text" id="console-input" placeholder="Message #general" autocomplete="off" spellcheck="false">
+
+          <div id="input-buttons-right">
+            <!-- Emoji picker trigger -->
+            <div class="input-icon" title="Emoji" onclick="openEmojiPicker()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+                <line x1="9" y1="9" x2="9.01" y2="9" />
+                <line x1="15" y1="9" x2="15.01" y2="9" />
+              </svg>
+            </div>
+            <!-- GIF -->
+            <div class="input-icon input-icon-gif" title="GIF" id="btn-giphy">GIF</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Members Panel -->
+    <div id="members-panel">
+      <div class="members-section-title">Online — <span id="online-count">0</span></div>
+      <div id="members-list"></div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+     CONTEXT MENU
+================================================================ -->
+  <div id="context-menu">
+    <div class="emoji-row">
+      <span class="emoji-opt" onclick="addReactionFromMenu('🔥')">🔥</span>
+      <span class="emoji-opt" onclick="addReactionFromMenu('😂')">😂</span>
+      <span class="emoji-opt" onclick="addReactionFromMenu('👍')">👍</span>
+      <span class="emoji-opt" onclick="addReactionFromMenu('✅')">✅</span>
+      <span class="emoji-opt" onclick="addReactionFromMenu('💀')">💀</span>
+      <span class="emoji-add" onclick="openCustomEmoji()">+</span>
+    </div>
+    <hr class="ctx-sep">
+    <div class="ctx-item" id="menu-edit" style="display:none;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+      </svg>
+      Edit Message
+    </div>
+    <div class="ctx-item" id="menu-reply">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <polyline points="9 17 4 12 9 7" />
+        <path d="M20 18v-2a4 4 0 0 0-4-4H4" />
+      </svg>
+      Reply
+    </div>
+    <div class="ctx-item" onclick="copyMessageText()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+      </svg>
+      Copy Text
+    </div>
+    <div class="ctx-item" onclick="copyMsgId()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+      </svg>
+      Copy Message ID
+    </div>
+    <hr class="ctx-sep">
+    <div class="ctx-item danger" id="menu-delete">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <polyline points="3 6 5 6 21 6" />
+        <path d="M19 6l-1 14H6L5 6" />
+        <path d="M10 11v6" />
+        <path d="M14 11v6" />
+        <path d="M9 6V4h6v2" />
+      </svg>
+      Delete Message
+    </div>
+  </div>
+
+  <!-- Reaction popover (emoji grid) -->
+  <div id="reaction-popover" class="reaction-popover hidden" role="dialog" aria-label="Add reaction"></div>
+
+  <!-- Generic modal (Giphy search, prompts) -->
+  <div id="generic-modal" class="modal-overlay hidden">
+    <div class="modal-card" role="dialog" aria-modal="true">
+      <div class="modal-head">
+        <span id="generic-modal-title" class="modal-title"></span>
+        <button type="button" class="btn-close" id="generic-modal-close" aria-label="Close">✕</button>
+      </div>
+      <div class="modal-body" id="generic-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+
+</html>
