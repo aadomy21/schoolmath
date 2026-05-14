@@ -1,6 +1,6 @@
 /**
- * SCHOOL HUB - FULL ENGINE
- * Features: Admin/Self Delete, Replies, Reactions, Real-time DM Routing
+ * SCHOOL - INTEGRATED ENGINE
+ * Features: Admin/Self Delete, Replies, Context Menu, 12-Reaction Limit, DMs, Custom Emojis
  */
 
 // --- 1. FIREBASE CONFIGURATION ---
@@ -24,8 +24,9 @@ let myUsername = "";
 let currentChatPath = "channels/general";
 let currentListener = null;
 let replyTo = null;
+let activeMsgId = null; 
 
-// --- 3. GATEKEEPER ---
+// --- 3. GATEKEEPER & REVEAL ---
 function initiateLogin() {
     const id = prompt("Student Portal ID:");
     const key = prompt("Portal Access Key:");
@@ -36,16 +37,13 @@ function initiateLogin() {
                 myUsername = id.split('@')[0];
                 revealApp();
             })
-            .catch(() => { console.warn("Unauthorized."); });
+            .catch(() => { console.warn("Access Denied."); });
     }
 }
 
 function revealApp() {
-    const mask = document.getElementById('math-cover');
-    const app = document.getElementById('app-ui');
-    if (mask) mask.style.display = "none";
-    if (app) app.style.setProperty('display', 'flex', 'important');
-
+    document.getElementById('math-cover').style.display = "none";
+    document.getElementById('app-ui').style.setProperty('display', 'flex', 'important');
     document.getElementById('status-text').innerText = "ONLINE";
     document.getElementById('status-text').style.color = "#23a55a";
 
@@ -53,89 +51,106 @@ function revealApp() {
     listenForMessages("channels/general");
 }
 
-// --- 4. MESSAGE ACTIONS ---
-function deleteMessage(msgId) {
-    if (confirm("Delete this message?")) {
-        db.ref(`${currentChatPath}/${msgId}`).remove();
+// --- 4. CONTEXT MENU LOGIC ---
+window.addEventListener('contextmenu', (e) => {
+    const msgElement = e.target.closest('.msg-wrap');
+    if (msgElement) {
+        e.preventDefault();
+        activeMsgId = msgElement.getAttribute('data-id');
+        const menu = document.getElementById('context-menu');
+        menu.style.display = 'block';
+        menu.style.left = `${e.pageX}px`;
+        menu.style.top = `${e.pageY}px`;
+
+        const isOwner = msgElement.getAttribute('data-sender') === myUsername;
+        document.getElementById('menu-delete').style.display = (isOwner || myUsername === THE_ONLY_ADMIN) ? 'block' : 'none';
+    } else {
+        hideMenu();
+    }
+});
+
+window.addEventListener('click', hideMenu);
+function hideMenu() { document.getElementById('context-menu').style.display = 'none'; }
+
+// --- 5. REACTION ENGINE ---
+function addReaction(msgId, emoji) {
+    const ref = db.ref(`${currentChatPath}/${msgId}/reactions`);
+    ref.once('value', (snap) => {
+        const reactions = snap.val() || {};
+        const uniqueEmojis = Object.keys(reactions);
+        
+        // Block if trying to add a 13th unique emoji
+        if (!reactions[emoji] && uniqueEmojis.length >= 12) {
+            alert("Maximum 12 unique reactions reached for this message.");
+            return;
+        }
+        ref.child(emoji).transaction(count => (count || 0) + 1);
+    });
+}
+
+function addReactionFromMenu(emoji) {
+    if (activeMsgId) addReaction(activeMsgId, emoji);
+    hideMenu();
+}
+
+function openCustomEmoji() {
+    hideMenu();
+    const custom = prompt("Enter an emoji:");
+    if (custom && custom.trim().length > 0) {
+        addReaction(activeMsgId, custom.trim());
     }
 }
 
-function setReply(sender, content, msgId) {
-    replyTo = { sender, content, id: msgId };
-    const input = document.getElementById('console-input');
-    input.placeholder = `Replying to ${sender}...`;
-    input.focus();
-}
-
-function addReaction(msgId, emoji) {
-    const reactionRef = db.ref(`${currentChatPath}/${msgId}/reactions/${emoji}`);
-    reactionRef.transaction((count) => (count || 0) + 1);
-}
-
-// --- 5. RENDERER & LISTENER ---
+// --- 6. MESSAGE HANDLERS ---
 function listenForMessages(path) {
     const container = document.getElementById('message-container');
     if (currentListener) db.ref(currentChatPath).off();
     currentChatPath = path;
 
-    // Listen for entire value to handle deletions/reactions instantly
     currentListener = db.ref(path).limitToLast(50).on('value', (snap) => {
         container.innerHTML = "";
-        snap.forEach((child) => {
-            renderMessage(child.key, child.val());
-        });
+        snap.forEach((child) => renderMessage(child.key, child.val()));
         container.scrollTop = container.scrollHeight;
     });
 }
 
 function renderMessage(msgId, data) {
     const container = document.getElementById('message-container');
-    const isMe = data.sender === myUsername;
-    const isAdmin = myUsername === THE_ONLY_ADMIN;
-
     const div = document.createElement('div');
     div.className = "msg-wrap";
+    div.setAttribute('data-id', msgId);
+    div.setAttribute('data-sender', data.sender);
 
-    // Build Reactions
     let reactionHTML = "";
     if (data.reactions) {
         Object.entries(data.reactions).forEach(([emoji, count]) => {
-            reactionHTML += `<span style="background:#1E1F22; padding:2px 6px; border-radius:4px; font-size:11px; margin-right:4px; border: 1px solid #2B2D31;">${emoji} ${count}</span>`;
+            reactionHTML += `
+                <div onclick="addReaction('${msgId}', '${emoji}')" style="background:#2B2D31; padding:2px 6px; border-radius:4px; font-size:11px; cursor:pointer; border:1px solid #4E5058; display:flex; align-items:center; gap:4px; margin-right:4px; margin-top:4px;">
+                    ${emoji} <span style="color:#ffffff;">${count}</span>
+                </div>`;
         });
     }
 
-    // Build Reply Preview
-    let replyHTML = data.replyingTo ? `<div class="reply-preview">⮑ ${data.replyingTo.sender}: ${data.replyingTo.content.substring(0, 40)}...</div>` : "";
-
-    const time = new Date(data.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-    const isMedia = /(https?:\/\/.*\.(?:png|jpg|jpeg|gif|webp))/i.test(data.content);
+    let replyHTML = data.replyingTo ? `<div style="font-size: 11px; color: #b5bac1; margin-bottom: 2px;">⮑ ${data.replyingTo.sender}: ${data.replyingTo.content.substring(0, 30)}...</div>` : "";
     
-    let contentHTML = isMedia 
-        ? `<img src="${data.content}" style="max-width: 100%; max-height: 350px; border-radius: 8px; margin-top: 5px; display: block;">`
-        : `<div style="color: #dbdee1; font-size: 14px; white-space: pre-wrap;">${data.content}</div>`;
+    // Check for images
+    const isMedia = /(https?:\/\/.*\.(?:png|jpg|jpeg|gif|webp))/i.test(data.content);
+    const contentHTML = isMedia 
+        ? `<img src="${data.content}" style="max-width: 100%; max-height: 300px; border-radius: 8px; margin-top: 5px;">`
+        : `<div style="color: #dbdee1; font-size: 14px; white-space: pre-wrap; word-break: break-word;">${data.content}</div>`;
 
     div.innerHTML = `
         ${replyHTML}
-        <div class="msg-actions">
-            <span class="action-btn" onclick="setReply('${data.sender}', '${data.content.replace(/'/g, "\\'")}', '${msgId}')">Reply</span>
-            <span class="action-btn" onclick="addReaction('${msgId}', '🔥')">🔥</span>
-            <span class="action-btn" onclick="addReaction('${msgId}', '👍')">👍</span>
-            ${(isMe || isAdmin) ? `<span class="action-btn" style="color:#f23f43;" onclick="deleteMessage('${msgId}')">Delete</span>` : ""}
-        </div>
         <div style="display: flex; flex-direction: column; width: 100%;">
-            <div style="display: flex; align-items: baseline; gap: 8px;">
-                <span style="color: #5865F2; font-weight: bold; font-size: 14px;">${data.sender}</span>
-                <span style="color: #949ba4; font-size: 10px;">${time}</span>
-            </div>
+            <span style="color: #5865F2; font-weight: bold; font-size: 14px;">${data.sender}</span>
             ${contentHTML}
-            <div style="margin-top: 6px; display: flex; flex-wrap: wrap;">${reactionHTML}</div>
+            <div style="display:flex; flex-wrap:wrap;">${reactionHTML}</div>
         </div>
     `;
-    
     container.appendChild(div);
 }
 
-// --- 6. NAVIGATION & DMs ---
+// --- 7. NAVIGATION & DMs ---
 function switchChat(target, type) {
     let path = (type === 'channel') ? `channels/${target}` : `dms/${[myUsername, target].sort().join('_')}`;
     document.getElementById('chat-title').innerText = (type === 'channel' ? target : `@${target}`);
@@ -151,6 +166,7 @@ function syncUserList() {
             if (name !== myUsername) {
                 const item = document.createElement('div');
                 item.style.padding = "8px";
+                item.style.borderRadius = "4px";
                 item.style.cursor = "pointer";
                 item.style.color = "#949ba4";
                 item.innerText = `# ${name}`;
@@ -162,16 +178,15 @@ function syncUserList() {
     db.ref(`system/users/${myUsername}`).set(true);
 }
 
-// --- 7. INPUT HANDLERS ---
+// --- 8. SYSTEM ACTIONS ---
+function deleteMessage(msgId) {
+    if (confirm("Delete this message?")) {
+        db.ref(`${currentChatPath}/${msgId}`).remove();
+    }
+}
+
+// --- 9. INPUT & KEYBOARD ---
 const inputField = document.getElementById('console-input');
-const charCounter = document.getElementById('char-count');
-
-inputField.addEventListener('input', () => {
-    const len = inputField.value.length;
-    charCounter.innerText = `${len} / 2000`;
-    charCounter.style.color = len >= 2000 ? "#f23f43" : "#949ba4";
-});
-
 inputField.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
         const val = inputField.value.trim();
@@ -187,15 +202,28 @@ inputField.addEventListener('keypress', (e) => {
         inputField.value = "";
         replyTo = null;
         inputField.placeholder = `Message #${currentChatPath.split('/').pop()}`;
-        charCounter.innerText = "0 / 2000";
     }
 });
 
+// ESCAPE HATCH
 window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         document.getElementById('app-ui').style.setProperty('display', 'none', 'important');
         document.getElementById('math-cover').style.display = "block";
     }
 });
+
+document.getElementById('menu-delete').onclick = () => { deleteMessage(activeMsgId); hideMenu(); };
+document.getElementById('menu-reply').onclick = () => { 
+    const msg = document.querySelector(`[data-id="${activeMsgId}"]`);
+    replyTo = { 
+        sender: msg.getAttribute('data-sender'), 
+        content: msg.querySelector('div').innerText, 
+        id: activeMsgId 
+    };
+    inputField.placeholder = `Replying to ${replyTo.sender}...`;
+    inputField.focus();
+    hideMenu();
+};
 
 window.onload = initiateLogin;
