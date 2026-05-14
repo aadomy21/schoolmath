@@ -12,20 +12,49 @@
 
     <link rel="stylesheet" href="style.css">
     <style>
-        body, html { 
-            margin: 0; 
-            padding: 0; 
-            height: 100%; 
-            background-color: #ffffff; 
-            overflow: hidden; 
+        /* Context Menu Styling */
+        #context-menu {
+            display: none;
+            position: absolute;
+            background: #111214;
+            border-radius: 4px;
+            padding: 8px 0;
+            width: 180px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            z-index: 10000;
+            border: 1px solid #2B2D31;
         }
 
-        /* 1. THE MATH MASK (Stealth Layer) */
-        #math-cover { 
-            padding: 60px; 
-            font-family: 'Times New Roman', serif; 
-            background-color: #ffffff; 
-            color: #000000; 
+        .menu-item {
+            padding: 8px 12px;
+            color: #dbdee1;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.1s;
+        }
+
+        .menu-item:hover {
+            background-color: #4752c4;
+            color: white !important;
+        }
+
+        .emoji-opt {
+            cursor: pointer;
+            font-size: 18px;
+            transition: transform 0.1s;
+            display: inline-block;
+        }
+
+        .emoji-opt:hover {
+            transform: scale(1.2);
+        }
+
+        /* Teacher-Friendly Mask Styling */
+        #math-cover {
+            padding: 60px;
+            font-family: 'Times New Roman', serif;
+            background-color: #ffffff;
+            color: #000000;
             height: 100vh;
             width: 100vw;
             position: absolute;
@@ -34,100 +63,11 @@
             z-index: 9999;
             display: block;
         }
-
-        /* 2. THE CHAT HUB (Hidden Layer) */
-        #app-ui { 
-            display: none !important; 
-            height: 100vh; 
-            width: 100vw; 
-            background-color: #1E1F22;
-            flex-direction: row;
-        }
-
-        /* Messaging Layout & Flooding Prevention */
-        #message-container {
-            flex-grow: 1;
-            overflow-y: auto;
-            overflow-x: hidden;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        /* Message Wrapper for consistent layout */
-        .msg-wrap {
-            width: 100%;
-            max-width: 100%;
-            word-break: break-word;
-            overflow-wrap: anywhere;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-        }
-
-        .msg-actions {
-            display: none;
-            position: absolute;
-            right: 10px;
-            top: -10px;
-            background: #2B2D31;
-            border: 1px solid #1E1F22;
-            border-radius: 4px;
-            padding: 2px 8px;
-            z-index: 10;
-        }
-
-        .msg-wrap:hover .msg-actions {
-            display: flex;
-            gap: 8px;
-        }
-
-        .action-btn {
-            cursor: pointer;
-            font-size: 12px;
-            color: #b5bac1;
-        }
-        .action-btn:hover { color: white; }
-
-        .reply-preview {
-            font-size: 11px;
-            color: #949ba4;
-            border-left: 2px solid #4e5058;
-            padding-left: 8px;
-            margin-bottom: 4px;
-        }
-
-        .project-icon {
-            width: 48px;
-            height: 48px;
-            background: #313338;
-            border-radius: 50%;
-            margin: 15px auto;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
-            cursor: pointer;
-            transition: border-radius 0.2s, background-color 0.2s;
-        }
-        .project-icon:hover, .project-icon.active {
-            border-radius: 30%;
-            background-color: #5865F2;
-        }
-
-        /* Custom Scrollbar */
-        #message-container::-webkit-scrollbar { width: 8px; }
-        #message-container::-webkit-scrollbar-thumb {
-            background: #1e1f22;
-            border-radius: 4px;
-        }
     </style>
 </head>
 <body>
 
-    <!-- VISIBLE TO TEACHERS -->
+    <!-- VISIBLE TO TEACHERS (The Mask) -->
     <div id="math-cover">
         <h1 style="font-size: 24pt;">Worksheet 4.2: Differential Equations</h1>
         <hr style="border: 1px solid black;">
@@ -140,7 +80,7 @@
         </div>
     </div>
 
-    <!-- REVEALED ON LOGIN -->
+    <!-- REVEALED ON LOGIN (The App) -->
     <div id="app-ui" class="app-container">
         <!-- Sidebar: Navigation -->
         <nav style="width: 72px; background: #1E1F22; flex-shrink: 0; border-right: 1px solid #2B2D31;">
@@ -149,7 +89,7 @@
 
         <!-- Sidebar: Channels & Users -->
         <aside style="width: 240px; background: #2B2D31; display: flex; flex-direction: column; color: white;">
-            <header style="padding: 15px; font-weight: bold; border-bottom: 1px solid #1E1F22;">SCHOOL HUB</header>
+            <header style="padding: 15px; font-weight: bold; border-bottom: 1px solid #1E1F22;">SCHOOL</header>
             
             <div style="padding: 10px; overflow-y: auto;">
                 <div style="color: #949ba4; font-size: 11px; font-weight: bold; margin: 15px 0 5px 5px; text-transform: uppercase;">Channels</div>
@@ -157,20 +97,20 @@
                 
                 <div style="color: #949ba4; font-size: 11px; font-weight: bold; margin: 25px 0 5px 5px; text-transform: uppercase;">Direct Messages</div>
                 <div id="dm-list">
-                    <!-- Users populate here for DMs -->
+                    <!-- Users populate here dynamically via app.js -->
                 </div>
             </div>
         </aside>
 
         <!-- Main Chat Area -->
-        <main style="flex-grow: 1; background: #313338; display: flex; flex-direction: column; color: white;">
+        <main style="flex-grow: 1; background: #313338; display: flex; flex-direction: column; color: white; position: relative;">
             <header style="padding: 15px; border-bottom: 1px solid #1E1F22; display: flex; justify-content: space-between;">
                 <div style="font-weight: bold;"># <span id="chat-title">general</span></div>
                 <div style="font-size: 11px;">STATUS: <span id="status-text" style="color: #f23f43;">OFFLINE</span></div>
             </header>
 
             <section id="message-container">
-                <!-- Messages populate here -->
+                <!-- Messages populate here from app.js -->
             </section>
 
             <!-- Input Section -->
@@ -185,6 +125,22 @@
                 <div id="char-count" style="color: #949ba4; font-size: 10px; text-align: right; margin-top: 5px;">0 / 2000</div>
             </div>
         </main>
+    </div>
+
+    <!-- Custom Context Menu -->
+    <div id="context-menu">
+        <div class="menu-item" id="menu-reply">Reply</div>
+        <div class="menu-item" id="menu-delete" style="color: #f23f43;">Delete Message</div>
+        <hr style="border: 0.5px solid #2B2D31; margin: 4px 0;">
+        <div style="padding: 4px 12px; font-size: 11px; color: #949ba4; font-weight: bold;">ADD REACTION</div>
+        <div style="display: flex; gap: 8px; padding: 8px 12px; align-items: center; justify-content: space-around;">
+            <span class="emoji-opt" onclick="addReactionFromMenu('🔥')">🔥</span>
+            <span class="emoji-opt" onclick="addReactionFromMenu('😂')">😂</span>
+            <span class="emoji-opt" onclick="addReactionFromMenu('👍')">👍</span>
+            <span class="emoji-opt" onclick="addReactionFromMenu('✅')">✅</span>
+            <!-- Custom Emoji Button -->
+            <span class="emoji-opt" onclick="openCustomEmoji()" style="font-size: 14px; background: #313338; padding: 2px 6px; border-radius: 4px; border: 1px solid #4E5058;">+</span>
+        </div>
     </div>
 
     <script src="app.js"></script>
