@@ -1,6 +1,6 @@
 /**
  * SCHOOL - INTEGRATED ENGINE
- * Features: Admin/Self Delete, Toggle Reactions (12-Limit), Custom Emojis, DMs, Stealth Escape
+ * Features: Toggle Reactions (12-Limit), Custom Emojis, DMs, Stealth Escape, Polished GUI
  */
 
 // --- 1. FIREBASE CONFIGURATION ---
@@ -26,7 +26,7 @@ let currentListener = null;
 let replyTo = null;
 let activeMsgId = null; 
 
-// --- 3. GATEKEEPER & REVEAL ---
+// --- 3. GATEKEEPER ---
 function initiateLogin() {
     const id = prompt("Student Portal ID:");
     const key = prompt("Portal Access Key:");
@@ -44,14 +44,23 @@ function initiateLogin() {
 function revealApp() {
     document.getElementById('math-cover').style.display = "none";
     document.getElementById('app-ui').style.setProperty('display', 'flex', 'important');
-    document.getElementById('status-text').innerText = "ONLINE";
+    document.getElementById('status-text').innerText = "Online";
     document.getElementById('status-text').style.color = "#23a55a";
+    document.getElementById('my-name-display').innerText = myUsername;
+    
+    // Set first letter for avatar
+    document.getElementById('user-avatar').innerText = myUsername[0].toUpperCase();
+    document.getElementById('user-avatar').style.display = "flex";
+    document.getElementById('user-avatar').style.alignItems = "center";
+    document.getElementById('user-avatar').style.justifyContent = "center";
+    document.getElementById('user-avatar').style.fontWeight = "bold";
+    document.getElementById('user-avatar').style.color = "white";
 
     syncUserList();
     listenForMessages("channels/general");
 }
 
-// --- 4. CONTEXT MENU LOGIC ---
+// --- 4. CONTEXT MENU & REACTION ENGINE ---
 window.addEventListener('contextmenu', (e) => {
     const msgElement = e.target.closest('.msg-wrap');
     if (msgElement) {
@@ -72,7 +81,6 @@ window.addEventListener('contextmenu', (e) => {
 window.addEventListener('click', hideMenu);
 function hideMenu() { document.getElementById('context-menu').style.display = 'none'; }
 
-// --- 5. UPDATED REACTION ENGINE (Toggle + 12 Unique Limit) ---
 function addReaction(msgId, emoji) {
     const msgRef = db.ref(`${currentChatPath}/${msgId}/reactions`);
     const userRef = db.ref(`${currentChatPath}/${msgId}/reactions/${emoji}/${myUsername}`);
@@ -83,15 +91,13 @@ function addReaction(msgId, emoji) {
         const hasReacted = allReactions[emoji] && allReactions[emoji][myUsername];
 
         if (hasReacted) {
-            // UNREACT: Remove entry if user already clicked
-            userRef.remove();
+            userRef.remove(); // Toggle Off
         } else {
-            // REACT: Block if trying to add a 13th unique emoji
             if (!allReactions[emoji] && uniqueEmojis.length >= 12) {
-                alert("Maximum 12 unique reactions reached for this message.");
+                alert("Maximum 12 unique reactions reached.");
                 return;
             }
-            userRef.set(true);
+            userRef.set(true); // Toggle On
         }
     });
 }
@@ -102,17 +108,17 @@ function addReactionFromMenu(emoji) {
 }
 
 function openCustomEmoji() {
-    const mId = activeMsgId; // Keep reference after menu hides
+    const mId = activeMsgId;
     hideMenu();
     setTimeout(() => {
         const custom = prompt("Enter an emoji:");
-        if (custom && custom.trim().length > 0) {
+        if (custom && custom.trim()) {
             addReaction(mId, custom.trim());
         }
     }, 100);
 }
 
-// --- 6. MESSAGE HANDLERS ---
+// --- 5. MESSAGE RENDERING ---
 function listenForMessages(path) {
     const container = document.getElementById('message-container');
     if (currentListener) db.ref(currentChatPath).off();
@@ -139,31 +145,41 @@ function renderMessage(msgId, data) {
             if (count > 0) {
                 const activeStyle = users[myUsername] ? "border-color: #5865F2; background: #37393e;" : "";
                 reactionHTML += `
-                    <div onclick="addReaction('${msgId}', '${emoji}')" 
-                         style="background:#2B2D31; padding:2px 6px; border-radius:4px; font-size:11px; cursor:pointer; border:1px solid #4E5058; display:flex; align-items:center; gap:4px; margin-right:4px; margin-top:4px; ${activeStyle}">
+                    <div class="reaction-bubble" onclick="addReaction('${msgId}', '${emoji}')" style="${activeStyle}">
                         ${emoji} <span style="color:#ffffff;">${count}</span>
                     </div>`;
             }
         });
     }
 
-    let replyHTML = data.replyingTo ? `<div style="font-size: 11px; color: #b5bac1; margin-bottom: 2px;">⮑ ${data.replyingTo.sender}: ${data.replyingTo.content.substring(0, 30)}...</div>` : "";
+    let replyHTML = data.replyingTo ? `<div style="font-size: 11px; color: var(--text-muted); margin-left: 55px; margin-bottom: 4px;">⮑ ${data.replyingTo.sender}: ${data.replyingTo.content.substring(0, 40)}...</div>` : "";
     
     div.innerHTML = `
-        ${replyHTML}
-        <div style="display: flex; flex-direction: column; width: 100%;">
-            <span style="color: #5865F2; font-weight: bold; font-size: 14px;">${data.sender}</span>
-            <div style="color: #dbdee1; font-size: 14px; white-space: pre-wrap; word-break: break-word;">${data.content}</div>
-            <div style="display:flex; flex-wrap:wrap;">${reactionHTML}</div>
+        <div style="width: 100%; display: flex; flex-direction: column;">
+            ${replyHTML}
+            <div style="display: flex;">
+                <div style="width: 40px; height: 40px; background: #5865F2; border-radius: 50%; margin-right: 15px; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0;">
+                    ${data.sender[0].toUpperCase()}
+                </div>
+                <div style="flex-grow: 1;">
+                    <div style="display: flex; align-items: baseline; gap: 8px;">
+                        <span style="color: white; font-weight: 500;">${data.sender}</span>
+                        <span style="color: var(--text-muted); font-size: 11px;">${new Date(data.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                    </div>
+                    <div style="color: var(--text-normal); font-size: 14px; margin-top: 2px; white-space: pre-wrap; word-break: break-word;">${data.content}</div>
+                    <div style="display:flex; flex-wrap:wrap; margin-top: 4px;">${reactionHTML}</div>
+                </div>
+            </div>
         </div>
     `;
     container.appendChild(div);
 }
 
-// --- 7. NAVIGATION & DMs ---
+// --- 6. NAVIGATION & SYSTEM ---
 function switchChat(target, type) {
     let path = (type === 'channel') ? `channels/${target}` : `dms/${[myUsername, target].sort().join('_')}`;
-    document.getElementById('chat-title').innerText = (type === 'channel' ? target : `@${target}`);
+    document.getElementById('chat-title').innerText = target;
+    document.getElementById('console-input').placeholder = `Message #${target}`;
     listenForMessages(path);
 }
 
@@ -175,11 +191,8 @@ function syncUserList() {
             const name = userSnap.key;
             if (name !== myUsername) {
                 const item = document.createElement('div');
-                item.style.padding = "8px";
-                item.style.borderRadius = "4px";
-                item.style.cursor = "pointer";
-                item.style.color = "#949ba4";
-                item.innerText = `# ${name}`;
+                item.className = "channel-link";
+                item.innerHTML = `<span style="color: #80848E; margin-right: 6px; font-size: 18px;">@</span> ${name}`;
                 item.onclick = () => switchChat(name, 'dm');
                 list.appendChild(item);
             }
@@ -188,34 +201,23 @@ function syncUserList() {
     db.ref(`system/users/${myUsername}`).set(true);
 }
 
-// --- 8. SYSTEM ACTIONS ---
-function deleteMessage(msgId) {
-    if (confirm("Delete this message?")) {
-        db.ref(`${currentChatPath}/${msgId}`).remove();
-    }
-}
-
-// --- 9. INPUT & KEYBOARD ---
+// --- 7. INPUT HANDLER & STEALH ---
 const inputField = document.getElementById('console-input');
 inputField.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
         const val = inputField.value.trim();
         if (!val) return;
-
         db.ref(currentChatPath).push({
             sender: myUsername,
             content: val,
             timestamp: Date.now(),
             replyingTo: replyTo
         });
-        
         inputField.value = "";
         replyTo = null;
-        inputField.placeholder = `Message #${currentChatPath.split('/').pop()}`;
     }
 });
 
-// ESCAPE HATCH (Closes chat immediately)
 window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         document.getElementById('app-ui').style.setProperty('display', 'none', 'important');
@@ -223,14 +225,15 @@ window.addEventListener('keydown', (e) => {
     }
 });
 
-document.getElementById('menu-delete').onclick = () => { deleteMessage(activeMsgId); hideMenu(); };
+document.getElementById('menu-delete').onclick = () => { 
+    if(confirm("Delete?")) db.ref(`${currentChatPath}/${activeMsgId}`).remove(); 
+    hideMenu(); 
+};
+
 document.getElementById('menu-reply').onclick = () => { 
     const msg = document.querySelector(`[data-id="${activeMsgId}"]`);
-    replyTo = { 
-        sender: msg.getAttribute('data-sender'), 
-        content: msg.querySelector('div').innerText, 
-        id: activeMsgId 
-    };
+    const content = msg.querySelector('div div div[style*="color: var(--text-normal)"]').innerText;
+    replyTo = { sender: msg.getAttribute('data-sender'), content: content, id: activeMsgId };
     inputField.placeholder = `Replying to ${replyTo.sender}...`;
     inputField.focus();
     hideMenu();
