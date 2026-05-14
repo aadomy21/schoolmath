@@ -5,564 +5,103 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Calculus III - Assignment 4</title>
 
+    <!-- Link to the main app styles (Discord theme) -->
+    <link rel="stylesheet" href="styles.css">
+
     <!-- Firebase Compat SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-auth-compat.js"></script>
 
     <style>
-        /* ============================================================
-           ROOT — DISCORD COLOUR SYSTEM
-        ============================================================ */
-        :root {
-            --bg-dark:   #1E1F22;
-            --bg-mid:    #2B2D31;
-            --bg-light:  #313338;
-            --accent:    #5865F2;
-            --accent-hov:#4752C4;
-            --green:     #23A55A;
-            --red:       #F23F43;
-            --text-muted:#949BA4;
-            --text-norm: #DBDEE1;
-            --speed:     0.18s;
+        /* 1. ESSENTIAL RESET FOR STEALTH 
+           Ensures the page starts pure white with school fonts before CSS loads */
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
 
-        /* ============================================================
-           RESET
-        ============================================================ */
-        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
         html, body {
-            height:100%; width:100%;
-            overflow:hidden;
-            background:#fff;
-            font-family: 'gg sans','Noto Sans',Whitney,'Helvetica Neue',Helvetica,Arial,sans-serif;
-        }
-
-        /* ============================================================
-           STEALTH MASK — Looks like a real maths worksheet
-        ============================================================ */
-        #math-cover {
-            position:fixed; inset:0; z-index:9999;
-            background:#fff; color:#000;
-            padding:52px 72px;
+            height: 100%;
+            width: 100%;
+            background-color: #ffffff;
             font-family: 'Times New Roman', Times, serif;
-            overflow:auto;
-        }
-        #math-cover h1   { font-size:22pt; text-align:center; letter-spacing:.5px; }
-        #math-cover h2   { font-size:14pt; text-align:center; font-weight:normal; margin-top:4px; }
-        #math-cover hr   { border:none; border-top:1.5px solid #000; margin:14px 0; }
-        #math-cover .meta { display:flex; gap:40px; font-size:12pt; margin-top:8px; }
-        #math-cover .meta span { display:flex; gap:6px; align-items:baseline; }
-        #math-cover .meta .line { border-bottom:1px solid #000; min-width:160px; display:inline-block; }
-        #math-cover .instructions {
-            font-size:11pt; border:1px solid #000; padding:10px 14px;
-            margin:22px 0 18px; line-height:1.6;
-        }
-        #math-cover .section-title { font-size:13pt; font-weight:bold; margin:22px 0 10px; text-decoration:underline; }
-        #math-cover ol { margin-left:28px; line-height:2.5; font-size:12pt; }
-        #math-cover ol li { margin-bottom:4px; }
-        #math-cover .work-box {
-            border:1px solid #888; height:90px; margin:4px 0 12px;
-            background:#fafafa;
-        }
-        #math-cover .grade-table {
-            width:340px; border-collapse:collapse; margin-top:28px; font-size:11pt;
-        }
-        #math-cover .grade-table th,
-        #math-cover .grade-table td {
-            border:1px solid #000; padding:5px 10px; text-align:center;
-        }
-        #math-cover .grade-table th { background:#e8e8e8; }
-        #math-cover footer-note {
-            display:block; font-size:9pt; color:#555;
-            margin-top:20px; text-align:center; font-style:italic;
         }
 
-        /* Login overlay (firebase auth modal) */
+        /* 2. THE STEALTH MASK (Worksheet 4.2) */
+        #math-cover {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: #ffffff;
+            color: #000000;
+            padding: 52px 72px;
+            overflow-y: auto;
+        }
+
+        #math-cover h1 { font-size: 22pt; text-align: center; }
+        #math-cover h2 { font-size: 14pt; text-align: center; font-weight: normal; }
+        #math-cover hr { border: none; border-top: 1.5px solid #000; margin: 14px 0; }
+
+        .meta { display: flex; gap: 32px; font-size: 12pt; margin-top: 8px; }
+        .meta .line { border-bottom: 1px solid #000; min-width: 160px; display: inline-block; }
+
+        .instructions { border: 1px solid #000; padding: 10px 14px; margin: 22px 0 18px; font-size: 11pt; }
+        .section-title { font-size: 13pt; font-weight: bold; margin: 24px 0 10px; text-decoration: underline; }
+
+        ol { margin-left: 28px; font-size: 12pt; }
+        ol li { margin-bottom: 4px; line-height: 2.2; }
+        .work-box { border: 1px solid #888; height: 90px; margin: 4px 0 16px; background: #fafafa; }
+
+        .grade-table { margin-top: 30px; border-collapse: collapse; }
+        .grade-table th, .grade-table td { border: 1px solid black; padding: 8px 15px; text-align: center; }
+        footer-note { display: block; margin-top: 40px; font-size: 9pt; color: #444; font-style: italic; }
+
+        /* 3. LOGIN OVERLAY (Immediate UI for smooth transition) */
         #login-overlay {
-            display:none; position:fixed; inset:0; z-index:10005;
-            background:rgba(0,0,0,.85); backdrop-filter:blur(4px);
-            align-items:center; justify-content:center;
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 10005;
+            background: rgba(0, 0, 0, .88);
+            align-items: center;
+            justify-content: center;
         }
-        #login-overlay.active { display:flex; }
+
+        #login-overlay.active { display: flex; }
+
         .login-card {
-            background:#1e1f22; border-radius:8px; padding:32px 36px;
-            width:min(400px, 90vw); box-shadow:0 8px 40px rgba(0,0,0,.6);
-            animation:fadeIn .25s ease;
-        }
-        .login-card .lc-logo {
-            width:68px; height:68px; border-radius:50%;
-            background:var(--accent); margin:0 auto 16px;
-            display:flex; align-items:center; justify-content:center;
-            font-size:32px; font-weight:bold; color:#fff;
-        }
-        .login-card h3 { color:#fff; text-align:center; font-size:20px; margin-bottom:6px; }
-        .login-card p  { color:var(--text-muted); text-align:center; font-size:13px; margin-bottom:24px; }
-        .login-card label  { display:block; color:var(--text-muted); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; margin-bottom:6px; }
-        .login-card input  {
-            display:block; width:100%; background:#2B2D31; border:1.5px solid #3a3c41;
-            border-radius:4px; padding:10px 14px; color:var(--text-norm);
-            font-size:14px; outline:none; margin-bottom:16px;
-            transition:border-color var(--speed);
-        }
-        .login-card input:focus { border-color:var(--accent); }
-        .login-card .login-btn {
-            width:100%; padding:11px; background:var(--accent);
-            border:none; border-radius:4px; color:#fff;
-            font-size:15px; font-weight:600; cursor:pointer;
-            transition:background var(--speed);
-        }
-        .login-card .login-btn:hover { background:var(--accent-hov); }
-        .login-card .login-btn:disabled { opacity:.5; cursor:not-allowed; }
-        .login-card .err-msg {
-            color:var(--red); font-size:13px; margin-bottom:12px;
-            text-align:center; min-height:18px;
+            background: #1E1F22;
+            border-radius: 5px;
+            padding: 32px 40px;
+            width: 440px;
+            color: white;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
         }
 
-        /* ============================================================
-           APP SHELL
-        ============================================================ */
-        #app-ui {
-            display:none !important;
-            position:fixed; inset:0; z-index:10001;
-            background:var(--bg-light);
-            animation:fadeIn .25s ease-out;
-        }
-        #app-ui.visible { display:flex !important; }
-
-        @keyframes fadeIn {
-            from { opacity:0; transform:scale(.98); }
-            to   { opacity:1; transform:scale(1);   }
+        .login-card label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 12px;
+            text-transform: uppercase;
+            font-weight: bold;
+            color: #B5BAC1;
         }
 
-        /* ---- Server / Nav strip ---- */
-        #nav-strip {
-            width:72px; background:var(--bg-dark);
-            display:flex; flex-direction:column;
-            align-items:center; padding:12px 0; gap:8px;
-            flex-shrink:0; overflow-y:auto;
-        }
-        .server-icon {
-            width:48px; height:48px; border-radius:24px;
-            background:var(--accent); color:#fff;
-            display:flex; align-items:center; justify-content:center;
-            font-weight:800; font-size:20px; cursor:pointer;
-            transition:border-radius var(--speed), background var(--speed);
-            user-select:none;
-        }
-        .server-icon:hover { border-radius:16px; }
-        .server-icon.active { border-radius:16px; }
-        .nav-divider { width:32px; height:2px; background:#35373C; border-radius:2px; }
-
-        /* ---- Channel sidebar ---- */
-        #sidebar {
-            width:240px; background:var(--bg-mid);
-            display:flex; flex-direction:column; flex-shrink:0;
-        }
-        #sidebar-header {
-            height:48px; padding:0 16px;
-            border-bottom:1px solid #1E1F22;
-            display:flex; align-items:center;
-            font-weight:700; color:#fff; font-size:15px;
-            cursor:pointer; user-select:none;
-            box-shadow:0 1px 3px rgba(0,0,0,.25);
-            justify-content:space-between;
-        }
-        #sidebar-header:hover { background:#36383d; }
-        .sidebar-scroll { flex-grow:1; overflow-y:auto; padding:8px 0; }
-        .sidebar-section-title {
-            padding:16px 16px 4px;
-            color:var(--text-muted); font-size:11px;
-            font-weight:700; text-transform:uppercase;
-            letter-spacing:.6px; cursor:pointer;
-            display:flex; align-items:center; gap:4px;
-        }
-        .sidebar-section-title:hover { color:var(--text-norm); }
-
-        .channel-link {
-            margin:0 8px 1px; padding:6px 8px;
-            border-radius:4px; cursor:pointer;
-            color:var(--text-muted); transition:background var(--speed), color var(--speed);
-            display:flex; align-items:center; gap:6px;
-            font-size:15px; font-weight:500; user-select:none;
-        }
-        .channel-link:hover  { background:#35373C; color:var(--text-norm); }
-        .channel-link.active { background:#3F4147; color:#fff; }
-        .ch-prefix { font-size:18px; color:#80848E; flex-shrink:0; }
-
-        /* Unread badge */
-        .unread-badge {
-            margin-left:auto; background:var(--red);
-            border-radius:99px; font-size:11px; font-weight:700;
-            color:#fff; padding:1px 5px; display:none;
+        .login-card input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            background: #313338;
+            border: none;
+            color: white;
+            border-radius: 3px;
         }
 
-        /* User panel */
-        #user-panel {
-            background:#232428; padding:8px 10px;
-            display:flex; align-items:center; gap:8px;
-            border-top:1px solid #1e1f22;
-        }
-        #user-avatar {
-            width:32px; height:32px; border-radius:50%;
-            background:var(--accent); flex-shrink:0;
-            display:flex; align-items:center; justify-content:center;
-            font-weight:700; color:#fff; font-size:14px; cursor:pointer;
-            position:relative;
-        }
-        #user-avatar::after {
-            content:''; position:absolute; bottom:-1px; right:-1px;
-            width:11px; height:11px; border-radius:50%;
-            background:var(--green); border:2.5px solid #232428;
-        }
-        #user-info { flex-grow:1; overflow:hidden; }
-        #my-name-display {
-            color:#fff; font-size:13px; font-weight:700;
-            white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-        }
-        #status-text { color:var(--text-muted); font-size:11px; }
-
-        .user-panel-icons {
-            display:flex; gap:4px; margin-left:auto;
-        }
-        .up-icon {
-            width:28px; height:28px; border-radius:4px;
-            display:flex; align-items:center; justify-content:center;
-            cursor:pointer; color:var(--text-muted);
-            transition:background var(--speed), color var(--speed);
-        }
-        .up-icon:hover { background:#35373C; color:var(--text-norm); }
-        .up-icon svg  { width:18px; height:18px; }
-
-        /* ---- Main chat area ---- */
-        #chat-main {
-            flex-grow:1; display:flex;
-            flex-direction:column; overflow:hidden;
-        }
-        #chat-header {
-            height:48px; padding:0 16px;
-            border-bottom:1px solid #1E1F22;
-            display:flex; align-items:center; gap:8px;
-            box-shadow:0 1px 3px rgba(0,0,0,.25); flex-shrink:0;
-        }
-        #chat-header .ch-prefix { font-size:22px; }
-        #chat-title  { color:#fff; font-weight:700; font-size:15px; }
-        #chat-header .topic {
-            color:var(--text-muted); font-size:13px;
-            border-left:1px solid #35373C; padding-left:10px; margin-left:4px;
-        }
-        #chat-header .header-icons { margin-left:auto; display:flex; gap:4px; }
-
-        /* ---- Message container ---- */
-        #message-container {
-            flex-grow:1; overflow-y:auto;
-            padding:16px 0 8px;
-            display:flex; flex-direction:column;
-            scroll-behavior:smooth;
-        }
-        #message-container::-webkit-scrollbar { width:8px; }
-        #message-container::-webkit-scrollbar-track { background:transparent; }
-        #message-container::-webkit-scrollbar-thumb { background:#1a1b1e; border-radius:10px; }
-
-        /* Welcome banner (appears at top of channel) */
-        .welcome-banner {
-            padding:16px 16px 24px; margin:0 0 8px;
-            border-bottom:1px solid #2b2d31;
-        }
-        .welcome-banner .wb-icon {
-            width:68px; height:68px; border-radius:50%;
-            background:var(--accent);
-            display:flex; align-items:center; justify-content:center;
-            font-size:36px; margin-bottom:16px; color:#fff;
-        }
-        .welcome-banner h2 { color:#fff; font-size:22px; margin-bottom:6px; }
-        .welcome-banner p  { color:var(--text-muted); font-size:14px; }
-
-        /* Day divider */
-        .day-divider {
-            display:flex; align-items:center;
-            padding:8px 16px; gap:8px; margin:8px 0;
-        }
-        .day-divider span {
-            color:var(--text-muted); font-size:12px;
-            font-weight:600; white-space:nowrap;
-        }
-        .day-divider::before,
-        .day-divider::after {
-            content:''; flex:1; height:1px; background:#3A3C42;
-        }
-
-        /* Message */
-        .msg-wrap {
-            display:flex; padding:2px 16px;
-            position:relative;
-            animation:slideIn .18s ease-out;
-            transition:background var(--speed);
-        }
-        .msg-wrap.group-start { padding-top:16px; margin-top:2px; }
-        .msg-wrap:hover  { background:#2E3035; }
-        @keyframes slideIn {
-            from { opacity:0; transform:translateX(-4px); }
-            to   { opacity:1; transform:translateX(0); }
-        }
-
-        .msg-avatar-col { width:40px; margin-right:16px; flex-shrink:0; }
-        .msg-avatar {
-            width:40px; height:40px; border-radius:50%;
-            background:var(--accent);
-            display:flex; align-items:center; justify-content:center;
-            font-weight:700; font-size:16px; color:#fff;
-            cursor:pointer; user-select:none;
-        }
-        .msg-avatar.admin-color { background:#e91e63; }
-
-        /* Timestamp in hover (compact messages) */
-        .msg-compact-ts {
-            display:none; color:var(--text-muted); font-size:10.5px;
-            margin-top:12px; width:40px; text-align:center;
-        }
-        .msg-wrap:not(.group-start):hover .msg-compact-ts { display:block; }
-        .msg-wrap:not(.group-start) .msg-avatar { display:none; }
-        .msg-wrap:not(.group-start):hover .msg-avatar { display:none; }
-
-        .msg-body { flex-grow:1; min-width:0; }
-        .msg-meta  {
-            display:flex; align-items:baseline; gap:8px; margin-bottom:2px;
-        }
-        .msg-sender {
-            color:#fff; font-weight:600; font-size:15px; cursor:pointer;
-        }
-        .msg-sender.admin-name { color:#e91e63; }
-        .msg-sender:hover { text-decoration:underline; }
-        .msg-time {
-            color:var(--text-muted); font-size:11px; user-select:none;
-        }
-        .msg-content {
-            color:var(--text-norm); font-size:15px;
-            line-height:1.5; white-space:pre-wrap;
-            word-break:break-word;
-        }
-        .msg-content a { color:#00b0f4; text-decoration:none; }
-        .msg-content a:hover { text-decoration:underline; }
-
-        /* Reply preview */
-        .reply-preview {
-            display:flex; align-items:center; gap:8px;
-            font-size:13px; color:var(--text-muted);
-            margin-bottom:3px; margin-left:56px;
-            cursor:pointer;
-        }
-        .reply-preview:hover { color:var(--text-norm); }
-        .reply-preview::before {
-            content:'';
-            display:inline-block; width:28px; height:12px;
-            border-left:2px solid #80848E; border-top:2px solid #80848E;
-            border-radius:4px 0 0 0; flex-shrink:0;
-            margin-right:4px; align-self:flex-end;
-        }
-        .reply-avatar {
-            width:16px; height:16px; border-radius:50%;
-            background:var(--accent);
-            display:inline-flex; align-items:center; justify-content:center;
-            font-size:9px; font-weight:700; color:#fff; flex-shrink:0;
-        }
-        .reply-name  { color:#b5bac1; font-weight:600; }
-        .reply-text  {
-            white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-            max-width:280px;
-        }
-
-        /* Reactions */
-        .reactions-row {
-            display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;
-        }
-        .reaction-bubble {
-            background:#2b2d31; padding:3px 7px;
-            border-radius:8px; font-size:13px;
-            cursor:pointer; border:1.5px solid transparent;
-            display:flex; align-items:center; gap:4px;
-            color:var(--text-norm); transition:all .1s;
-            user-select:none;
-        }
-        .reaction-bubble:hover { border-color:var(--text-muted); background:#37393e; }
-        .reaction-bubble.mine  { border-color:var(--accent); background:#3a3d5c; }
-        .reaction-bubble .r-count { font-size:12px; color:#c4c9d4; }
-
-        /* Hover action bar */
-        .msg-actions {
-            display:none; position:absolute; right:16px; top:-16px;
-            background:#2b2d31; border:1px solid #1e1f22;
-            border-radius:6px; padding:3px 4px;
-            gap:2px; box-shadow:0 4px 12px rgba(0,0,0,.3);
-            z-index:10;
-        }
-        .msg-wrap:hover .msg-actions { display:flex; }
-        .action-btn {
-            width:28px; height:28px; border-radius:4px;
-            display:flex; align-items:center; justify-content:center;
-            cursor:pointer; color:var(--text-muted);
-            transition:background var(--speed), color var(--speed);
-            font-size:16px;
-        }
-        .action-btn:hover { background:#35373C; color:#fff; }
-        .action-btn.delete:hover { background:#f23f43; color:#fff; }
-
-        /* ---- Input bar ---- */
-        #input-bar { padding:0 16px 24px; flex-shrink:0; }
-        #reply-banner {
-            display:none; background:#2b2d31;
-            border-radius:8px 8px 0 0; padding:8px 14px;
-            color:var(--text-muted); font-size:13px;
-            display:flex; align-items:center; gap:6px;
-        }
-        #reply-banner.active { display:flex; }
-        #reply-banner span { color:var(--text-norm); font-weight:600; }
-        #reply-banner .close-reply {
-            margin-left:auto; cursor:pointer; font-size:18px;
-            color:var(--text-muted); line-height:1;
-        }
-        #reply-banner .close-reply:hover { color:#fff; }
-
-        #input-wrap {
-            background:#383A40; border-radius:8px;
-            display:flex; align-items:flex-end;
-            padding:0; overflow:hidden;
-            border:1px solid transparent;
-            transition:border-color var(--speed);
-        }
-        #input-wrap:focus-within { border-color:#4E5058; }
-        #reply-banner + #input-wrap { border-radius:0 0 8px 8px; }
-
-        #input-buttons-left {
-            display:flex; align-items:center; padding:0 6px;
-        }
-        .input-icon {
-            width:36px; height:44px;
-            display:flex; align-items:center; justify-content:center;
-            cursor:pointer; color:#b5bac1; border-radius:4px;
-            transition:color var(--speed);
-        }
-        .input-icon:hover { color:#dcddde; }
-        .input-icon svg { width:22px; height:22px; }
-
-        #console-input {
-            flex-grow:1; background:transparent; border:none;
-            color:var(--text-norm); outline:none;
-            font-size:15px; padding:11px 4px;
-            resize:none; max-height:150px; height:44px;
-            line-height:1.5; font-family:inherit;
-        }
-        #console-input::placeholder { color:#6d6f78; }
-
-        #input-buttons-right {
-            display:flex; align-items:center; padding:0 6px;
-        }
-
-        /* ---- Context menu ---- */
-        #context-menu {
-            display:none; position:fixed;
-            background:#111214; border:1px solid #2b2d31;
-            border-radius:6px; padding:6px 0;
-            min-width:188px;
-            box-shadow:0 8px 24px rgba(0,0,0,.6);
-            z-index:20000; animation:fadeIn .1s ease;
-        }
-        #context-menu.visible { display:block; }
-        .ctx-section {
-            padding:4px 10px 2px;
-            color:var(--text-muted); font-size:11px;
-            font-weight:700; text-transform:uppercase; letter-spacing:.6px;
-        }
-        .ctx-item {
-            padding:7px 12px; color:#dbdee1;
-            cursor:pointer; font-size:14px;
-            display:flex; align-items:center; gap:8px;
-            transition:background .1s;
-        }
-        .ctx-item:hover { background:#4752c4; color:#fff; border-radius:3px; }
-        .ctx-item.danger { color:var(--red); }
-        .ctx-item.danger:hover { background:var(--red); color:#fff; }
-        .ctx-sep { border:none; border-top:1px solid #2b2d31; margin:4px 0; }
-        .emoji-row {
-            display:flex; gap:6px; padding:6px 12px;
-            justify-content:space-between;
-        }
-        .emoji-opt {
-            font-size:20px; cursor:pointer; padding:4px;
-            border-radius:6px; transition:background .1s; line-height:1;
-            user-select:none;
-        }
-        .emoji-opt:hover { background:#35373c; }
-        .emoji-add {
-            font-size:12px; font-weight:700;
-            background:#313338; padding:4px 8px;
-            border-radius:6px; border:1px solid #4E5058;
-            cursor:pointer; color:var(--text-muted);
-            display:flex; align-items:center;
-        }
-        .emoji-add:hover { background:#35373c; color:#fff; }
-
-        /* ---- Members panel (right sidebar) ---- */
-        #members-panel {
-            width:240px; background:var(--bg-mid);
-            padding:16px 8px; overflow-y:auto;
-            flex-shrink:0; border-left:1px solid #1e1f22;
-            display:none;
-        }
-        #members-panel.open { display:block; }
-        .members-section-title {
-            color:var(--text-muted); font-size:11px;
-            font-weight:700; text-transform:uppercase;
-            letter-spacing:.6px; padding:8px 8px 6px;
-        }
-        .member-item {
-            display:flex; align-items:center; gap:10px;
-            padding:6px 8px; border-radius:4px;
-            cursor:pointer; transition:background var(--speed);
-        }
-        .member-item:hover { background:#35373c; }
-        .member-item:hover .member-name { color:#fff; }
-        .member-av {
-            width:32px; height:32px; border-radius:50%;
-            background:var(--accent); flex-shrink:0;
-            display:flex; align-items:center; justify-content:center;
-            font-size:13px; font-weight:700; color:#fff;
-            position:relative;
-        }
-        .member-av::after {
-            content:''; position:absolute; bottom:-1px; right:-1px;
-            width:11px; height:11px; border-radius:50%;
-            background:var(--green); border:2.5px solid var(--bg-mid);
-        }
-        .member-name { color:#b5bac1; font-size:14px; font-weight:500; }
-
-        /* ---- Misc ---- */
-        ::-webkit-scrollbar         { width:8px; }
-        ::-webkit-scrollbar-track   { background:transparent; }
-        ::-webkit-scrollbar-thumb   { background:#1a1b1e; border-radius:10px; }
-        ::-webkit-scrollbar-thumb:hover { background:#3a3a3a; }
-
-        /* Typing indicator */
-        #typing-indicator {
-            padding:0 16px 6px; font-size:12px;
-            color:var(--text-muted); min-height:20px;
-        }
-
-        /* Toast notification */
-        #toast {
-            position:fixed; bottom:24px; left:50%;
-            transform:translateX(-50%) translateY(60px);
-            background:#1e1f22; color:var(--text-norm);
-            padding:10px 20px; border-radius:6px;
-            box-shadow:0 4px 16px rgba(0,0,0,.5);
-            font-size:14px; z-index:30000;
-            transition:transform .3s ease, opacity .3s;
-            opacity:0; pointer-events:none;
-        }
-        #toast.show {
-            transform:translateX(-50%) translateY(0);
-            opacity:1;
-        }
+        /* 4. EMERGENCY VISIBILITY CONTROLS */
+        .hidden { display: none !important; }
+        #app-ui:not(.visible) { display: none !important; }
     </style>
 </head>
 <body>
