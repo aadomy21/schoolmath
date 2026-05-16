@@ -1996,41 +1996,41 @@ function sendMessage() {
   }
 
   if (isFirebaseBackend()) {
-  const content = val || (attachments.length ? " " : "");
-  const payload = {
-    sender: AppState.currentUser,
-    content,
-    timestamp: firebase.database.ServerValue.TIMESTAMP,
-  };
-  if (attachments.length) payload.attachments = attachments;
-  if (AppState.replyTarget) payload.replyingTo = AppState.replyTarget;
-  db.ref(AppState.currentChatPath).push(payload);
+    const content = val || (attachments.length ? " " : "");
+    const payload = {
+      sender: AppState.currentUser,
+      content,
+      timestamp: firebase.database.ServerValue.TIMESTAMP,
+    };
+    if (attachments.length) payload.attachments = attachments;
+    if (AppState.replyTarget) payload.replyingTo = AppState.replyTarget;
+    db.ref(AppState.currentChatPath).push(payload);
+    input.value = "";
+    AppState.pendingAttachments = [];
+    renderAttachmentStrip();
+    cancelReply();
+    clearTyping();
+    return;
+  }
+
+  if (AppState.view === "dm") {
+    AppState.socket.emit("dm:send", { peer: AppState.activeDmPeer, ...payloadBase }, res => {
+      if (!res?.ok) showToast("Failed to send.");
+    });
+  } else {
+    AppState.socket.emit("message:send", {
+      guildId: AppState.activeGuildId,
+      channelId: AppState.activeChannelId,
+      ...payloadBase,
+    }, res => {
+      if (!res?.ok) showToast("Failed to send.");
+    });
+  }
   input.value = "";
   AppState.pendingAttachments = [];
   renderAttachmentStrip();
   cancelReply();
   clearTyping();
-  return;
-}
-
-if (AppState.view === "dm") {
-  AppState.socket.emit("dm:send", { peer: AppState.activeDmPeer, ...payloadBase }, res => {
-    if (!res?.ok) showToast("Failed to send.");
-  });
-} else {
-  AppState.socket.emit("message:send", {
-    guildId: AppState.activeGuildId,
-    channelId: AppState.activeChannelId,
-    ...payloadBase,
-  }, res => {
-    if (!res?.ok) showToast("Failed to send.");
-  });
-}
-input.value = "";
-AppState.pendingAttachments = [];
-renderAttachmentStrip();
-cancelReply();
-clearTyping();
 }
 
 function startEditMessage(id, content) {
