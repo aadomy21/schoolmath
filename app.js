@@ -319,7 +319,18 @@ function updateInputPlaceholder() {
 
 // --- Auth ---
 window.onload = () => {
-  UI.loginOverlay().classList.add("active");
+  // Show the math worksheet first. Login prompt appears after unlocking the hidden hotspot.
+  // Do not auto-open login overlay here.
+  const unlock = document.getElementById('math-unlock');
+  if (unlock) {
+    unlock.addEventListener('click', () => {
+      UI.loginOverlay().classList.add('active');
+      UI.loginEmail().focus();
+    });
+  } else {
+    // fallback: show login overlay if unlock hotspot missing
+    UI.loginOverlay().classList.add("active");
+  }
   UI.loginPass().addEventListener("keydown", e => {
     if (e.key === "Enter") handleLogin();
   });
@@ -331,6 +342,16 @@ window.onload = () => {
 function handleLogin() {
   const email = UI.loginEmail().value.trim();
   const pass = UI.loginPass().value;
+  const backend = getBackendMode();
+  // If using socket backend (local dev), allow simple username login (no password)
+  if (backend === 'socket') {
+    if (!email) { showLoginError('Enter your username'); return; }
+    AppState.currentUser = email.split('@')[0].toLowerCase();
+    UI.loginOverlay().classList.remove('active');
+    revealApp();
+    return;
+  }
+  // Default: Firebase auth
   if (!email || !pass) {
     showLoginError("Please fill in both fields.");
     return;
@@ -1286,7 +1307,7 @@ function initCommandPalette() {
     UI.consoleInput()?.addEventListener('keydown', e => {
       if (e.key === 'Escape') hideCommandPalette();
     });
-  } catch (e) {}
+  } catch (e) { }
 }
 
 function onConsoleInput(e) {
@@ -1298,7 +1319,7 @@ function onConsoleInput(e) {
     { k: '/dnd', d: '/dnd on|off [@user]' },
     { k: '/push', d: 'Send push to all users' },
   ];
-  const filtered = cmds.filter(c => c.k.slice(1).startsWith(q) || c.k.startsWith('/' + q) );
+  const filtered = cmds.filter(c => c.k.slice(1).startsWith(q) || c.k.startsWith('/' + q));
   renderCmdPalette(filtered.length ? filtered : cmds);
 }
 

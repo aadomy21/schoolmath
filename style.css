@@ -202,6 +202,18 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
+/* Invisible unlock hotspot inside the math cover to reveal login */
+#math-unlock {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  width: 22px;
+  height: 22px;
+  background: transparent;
+  cursor: pointer;
+  z-index: 10000;
+}
+
 #math-cover h1 {
   font-size: 22pt;
   text-align: center;
@@ -1063,10 +1075,26 @@ body {
   z-index: 1200;
   display: none;
 }
-.cmd-palette.visible { display: block; }
-.cmd-palette .cmd-item { padding: 10px 12px; cursor: pointer; color: var(--text-norm); }
-.cmd-palette .cmd-item:hover { background: var(--bg-hover); }
-.cmd-palette .cmd-item .muted { color: var(--text-muted); font-size: 13px; margin-left: 8px; }
+
+.cmd-palette.visible {
+  display: block;
+}
+
+.cmd-palette .cmd-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  color: var(--text-norm);
+}
+
+.cmd-palette .cmd-item:hover {
+  background: var(--bg-hover);
+}
+
+.cmd-palette .cmd-item .muted {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-left: 8px;
+}
 
 .msg-content a:hover {
   text-decoration: underline;
