@@ -72,6 +72,27 @@ const AppState = {
   visibleMessageEnd: 0,
 };
 
+const FIREBASE_KEY_ESCAPES = {
+  ".": "%2E",
+  "#": "%23",
+  "$": "%24",
+  "/": "%2F",
+  "[": "%5B",
+  "]": "%5D",
+};
+
+const FIREBASE_KEY_UNESCAPES = Object.fromEntries(
+  Object.entries(FIREBASE_KEY_ESCAPES).map(([key, value]) => [value, key])
+);
+
+function firebaseSafeKey(value) {
+  return String(value || "").replace(/[.#$/\[\]]/g, ch => FIREBASE_KEY_ESCAPES[ch] || ch);
+}
+
+function firebaseKeyToUsername(key) {
+  return String(key || "").replace(/%2E|%23|%24|%2F|%5B|%5D/g, match => FIREBASE_KEY_UNESCAPES[match] || match);
+}
+
 const $ = id => document.getElementById(id);
 
 const UI = {
@@ -366,11 +387,12 @@ function attachFirebaseTypingListener() {
   if (!key) return;
   const ref = db.ref(`typing/${key}`);
   firebaseTypingRef = ref;
+  const currentUserKey = firebaseSafeKey(AppState.currentUser);
   ref.on("value", snap => {
     if (firebaseTypingRef !== ref) return;
     const typers = [];
     snap.forEach(c => {
-      if (c.key !== AppState.currentUser) typers.push(c.key);
+      if (c.key !== currentUserKey) typers.push(firebaseKeyToUsername(c.key));
     });
     const indicator = UI.typingIndicator();
     if (!typers.length) {
@@ -386,7 +408,7 @@ function attachFirebaseTypingListener() {
 }
 
 function registerPresenceFirebase() {
-  const ref = db.ref(`system/users/${AppState.currentUser}`);
+  const ref = db.ref(`system/users/${firebaseSafeKey(AppState.currentUser)}`);
   ref.set({ online: true, ts: firebase.database.ServerValue.TIMESTAMP });
   ref.onDisconnect().update({ online: false, ts: firebase.database.ServerValue.TIMESTAMP });
   setInterval(() => ref.update({ online: true, ts: firebase.database.ServerValue.TIMESTAMP }), 30000);
@@ -397,7 +419,7 @@ function syncUserListFirebase() {
     const online = [];
     const allNames = [];
     snap.forEach(userSnap => {
-      const name = userSnap.key;
+      const name = firebaseKeyToUsername(userSnap.key);
       allNames.push(name);
       if ((userSnap.val() || {}).online === true) online.push(name);
     });
@@ -433,12 +455,13 @@ function connectFirebaseRealtime() {
 function toggleReactionFirebase(msgId, emoji) {
   const base = AppState.currentChatPath;
   if (!base) return;
+  const userKey = firebaseSafeKey(AppState.currentUser);
   const msgRef = db.ref(`${base}/${msgId}/reactions`);
-  const userRef = db.ref(`${base}/${msgId}/reactions/${emoji}/${AppState.currentUser}`);
+  const userRef = db.ref(`${base}/${msgId}/reactions/${emoji}/${userKey}`);
   msgRef.once("value", snap => {
     const all = snap.val() || {};
     const hasEmoji = !!all[emoji];
-    const hasMine = hasEmoji && !!all[emoji][AppState.currentUser];
+    const hasMine = hasEmoji && !!all[emoji][userKey];
     if (hasMine) userRef.remove();
     else {
       const uniqueCount = Object.keys(all).length;
@@ -696,7 +719,7 @@ function openDm(peer) {
   renderGuildNav();
 
   if (isFirebaseBackend()) {
-    const sorted = [AppState.currentUser, peer].sort().join("_");
+    const sorted = [firebaseSafeKey(AppState.currentUser), firebaseSafeKey(peer)].sort().join("_");
     AppState.activeDmKey = sorted;
     AppState.currentChatPath = `dms/${sorted}`;
     subscribeFirebaseRoom(AppState.currentChatPath);
@@ -1455,12 +1478,12 @@ function handleTypingInput() {
     if (!key) return;
     if (!isTyping) {
       isTyping = true;
-      db.ref(`typing/${key}/${AppState.currentUser}`).set(true);
+      db.ref(`typing/${key}/${firebaseSafeKey(AppState.currentUser)}`).set(true);
     }
     clearTimeout(typingTimer);
     typingTimer = setTimeout(() => {
       isTyping = false;
-      db.ref(`typing/${key}/${AppState.currentUser}`).remove();
+      db.ref(`typing/${key}/${firebaseSafeKey(AppState.currentUser)}`).remove();
     }, TYPING_TIMEOUT_MS);
     return;
   }
@@ -1491,7 +1514,7 @@ function clearTyping() {
   clearTimeout(typingTimer);
   if (isFirebaseBackend()) {
     const key = AppState.currentChatPath.replace(/\//g, "_");
-    if (key) db.ref(`typing/${key}/${AppState.currentUser}`).remove();
+    if (key) db.ref(`typing/${key}/${firebaseSafeKey(AppState.currentUser)}`).remove();
     return;
   }
   const ctx = typingPayload();
