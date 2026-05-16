@@ -1114,10 +1114,6 @@ function renderMessage(msgId, data, isGroupStart, msgIndex = 0) {
       ${isGroupStart
       ? `<div class="msg-avatar${isAdmin ? " admin-color" : ""}" title="${escAttr(data.sender)}">${(data.sender || "?")[0].toUpperCase()}</div>`
       : `<span class="msg-compact-ts">${timeStr}</span>`}
-      let bodyContent = linkify(escHtml(data.content || ""));  
-      try {
-        bodyContent = bodyContent.replace(/@([a-z0-9._-]{1,48})/gi, function(_, u) { return `< a href = "#" class="mention" onclick = "openDm('${u.toLowerCase()}')" > @${ u }</a > `; });
-      } catch (e) {}
     <div class="msg-body">
       ${isGroupStart
       ? `<div class="msg-meta">
