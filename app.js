@@ -339,6 +339,16 @@ window.onload = () => {
   });
 };
 
+// Keyboard shortcut to reveal login overlay: Ctrl+L
+window.addEventListener('keydown', (e) => {
+  try {
+    if (e.ctrlKey && String(e.key || '').toLowerCase() === 'l') {
+      UI.loginOverlay().classList.add('active');
+      UI.loginEmail().focus();
+    }
+  } catch (err) { }
+});
+
 function handleLogin() {
   const email = UI.loginEmail().value.trim();
   const pass = UI.loginPass().value;
