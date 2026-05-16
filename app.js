@@ -1813,11 +1813,11 @@ function tryHandleLocalSlashCommand(val) {
     case '/coin': return { handled: true, content: `🪙 ${random(['Heads', 'Tails'])}` };
     case '/roll': {
       const rolls = rollDice(arg || '1d6');
-      return { handled: true, content: `🎲 ${AppProfile.displayName || AppState.currentUser} rolled ${rolls.join(', ')}${rolls.length > 1 ? ` (total ${rolls.reduce((a,b)=>a+b,0)})` : ''}` };
+      return { handled: true, content: `🎲 ${AppProfile.displayName || AppState.currentUser} rolled ${rolls.join(', ')}${rolls.length > 1 ? ` (total ${rolls.reduce((a, b) => a + b, 0)})` : ''}` };
     }
     case '/dice': {
       const rolls = rollDice(arg || '1d6');
-      return { handled: true, content: `🎲 ${AppProfile.displayName || AppState.currentUser} rolled ${rolls.join(', ')}${rolls.length > 1 ? ` (total ${rolls.reduce((a,b)=>a+b,0)})` : ''}` };
+      return { handled: true, content: `🎲 ${AppProfile.displayName || AppState.currentUser} rolled ${rolls.join(', ')}${rolls.length > 1 ? ` (total ${rolls.reduce((a, b) => a + b, 0)})` : ''}` };
     }
     case '/8ball': {
       const answers = ['It is certain.', 'Ask later.', 'No way.', 'Yes.', 'Maybe.', 'Definitely not.', 'Absolutely.', 'Probably.', 'The odds are good.', 'I have no idea.'];
@@ -1994,50 +1994,43 @@ function sendMessage() {
     input.value = '';
     return;
   }
-    replyingTo: AppState.replyTarget,
-    attachments,
-    senderDisplayName: AppProfile.displayName || AppState.currentUser,
-    senderAvatar: AppProfile.avatar || null,
-    senderPronouns: AppProfile.pronouns || '',
-    senderBio: AppProfile.bio || '',
-  };
 
   if (isFirebaseBackend()) {
-    const content = val || (attachments.length ? " " : "");
-    const payload = {
-      sender: AppState.currentUser,
-      content,
-      timestamp: firebase.database.ServerValue.TIMESTAMP,
-    };
-    if (attachments.length) payload.attachments = attachments;
-    if (AppState.replyTarget) payload.replyingTo = AppState.replyTarget;
-    db.ref(AppState.currentChatPath).push(payload);
-    input.value = "";
-    AppState.pendingAttachments = [];
-    renderAttachmentStrip();
-    cancelReply();
-    clearTyping();
-    return;
-  }
-
-  if (AppState.view === "dm") {
-    AppState.socket.emit("dm:send", { peer: AppState.activeDmPeer, ...payloadBase }, res => {
-      if (!res?.ok) showToast("Failed to send.");
-    });
-  } else {
-    AppState.socket.emit("message:send", {
-      guildId: AppState.activeGuildId,
-      channelId: AppState.activeChannelId,
-      ...payloadBase,
-    }, res => {
-      if (!res?.ok) showToast("Failed to send.");
-    });
-  }
+  const content = val || (attachments.length ? " " : "");
+  const payload = {
+    sender: AppState.currentUser,
+    content,
+    timestamp: firebase.database.ServerValue.TIMESTAMP,
+  };
+  if (attachments.length) payload.attachments = attachments;
+  if (AppState.replyTarget) payload.replyingTo = AppState.replyTarget;
+  db.ref(AppState.currentChatPath).push(payload);
   input.value = "";
   AppState.pendingAttachments = [];
   renderAttachmentStrip();
   cancelReply();
   clearTyping();
+  return;
+}
+
+if (AppState.view === "dm") {
+  AppState.socket.emit("dm:send", { peer: AppState.activeDmPeer, ...payloadBase }, res => {
+    if (!res?.ok) showToast("Failed to send.");
+  });
+} else {
+  AppState.socket.emit("message:send", {
+    guildId: AppState.activeGuildId,
+    channelId: AppState.activeChannelId,
+    ...payloadBase,
+  }, res => {
+    if (!res?.ok) showToast("Failed to send.");
+  });
+}
+input.value = "";
+AppState.pendingAttachments = [];
+renderAttachmentStrip();
+cancelReply();
+clearTyping();
 }
 
 function startEditMessage(id, content) {
