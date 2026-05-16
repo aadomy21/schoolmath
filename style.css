@@ -967,10 +967,6 @@ body {
   filter: brightness(1.12);
 }
 
-.msg-avatar.admin-color {
-  background: #e91e63;
-}
-
 /* Compact timestamp (for grouped messages) */
 .msg-compact-ts {
   display: none;
@@ -1019,10 +1015,6 @@ body {
 
 .msg-sender:hover {
   text-decoration: underline;
-}
-
-.msg-sender.admin-name {
-  color: #e91e63;
 }
 
 .msg-username {
@@ -1718,10 +1710,6 @@ body {
   border: 2.5px solid var(--bg-mid);
 }
 
-.member-av.admin-color {
-  background: #e91e63;
-}
-
 .member-name {
   color: #b5bac1;
   font-size: 14px;
@@ -1730,10 +1718,6 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   transition: color var(--speed);
-}
-
-.member-name.admin-name {
-  color: #e91e63;
 }
 
 /* ============================================================
@@ -1780,10 +1764,6 @@ body {
   color: #fff;
   vertical-align: middle;
   margin-left: 4px;
-}
-
-.role-badge.admin {
-  background: #e91e63;
 }
 
 /* Code block inside messages */

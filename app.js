@@ -85,9 +85,25 @@ let mentionAutocomplete = {
 };
 
 const SLASH_COMMANDS = [
-  { key: '/nick', label: 'Change your display name' },
-  { key: '/dnd', label: '/dnd on|off [@user]' },
-  { key: '/push', label: 'Send push to all users' },
+  { key: '/help', label: 'Show available slash commands', admin: false },
+  { key: '/shrug', label: 'Send ¯\\_(ツ)_/¯', admin: false },
+  { key: '/tableflip', label: 'Flip the table', admin: false },
+  { key: '/unflip', label: 'Put the table back', admin: false },
+  { key: '/lenny', label: 'Send a Lenny face', admin: false },
+  { key: '/flip', label: 'Send a random flip reaction', admin: false },
+  { key: '/coin', label: 'Flip a coin', admin: false },
+  { key: '/roll', label: 'Roll dice, e.g. /roll 1d20', admin: false },
+  { key: '/dice', label: 'Roll dice alias for /roll', admin: false },
+  { key: '/8ball', label: 'Ask the magic 8-ball', admin: false },
+  { key: '/me', label: 'Perform an action, e.g. /me dances', admin: false },
+  { key: '/mock', label: 'Mock text like sPoNgEbOb', admin: false },
+  { key: '/reverse', label: 'Reverse text', admin: false },
+  { key: '/say', label: 'Say something literally', admin: false },
+  { key: '/poke', label: 'Poke someone', admin: false },
+  { key: '/announce', label: 'Announce to the channel', admin: true },
+  { key: '/nick', label: 'Change your display name', admin: true },
+  { key: '/dnd', label: '/dnd on|off [@user]', admin: true },
+  { key: '/push', label: 'Send push to all users', admin: true },
 ];
 
 // User settings persisted to localStorage
@@ -1353,13 +1369,13 @@ function renderMessage(msgId, data, isGroupStart, msgIndex = 0) {
   wrap.innerHTML = `
     <div class="msg-avatar-col">
       ${isGroupStart
-      ? `<div class="msg-avatar${isAdmin ? " admin-color" : ""}" title="View profile" onclick="openUserProfile('${escAttr(data.sender)}')" style="${avatarUrl ? `background-image:url('${escAttr(avatarUrl)}');` : ''}">${!avatarUrl ? escHtml((displayName || data.sender || '?')[0]?.toUpperCase() || '?') : ''}</div>`
+      ? `<div class="msg-avatar" title="View profile" onclick="openUserProfile('${escAttr(data.sender)}')" style="${avatarUrl ? `background-image:url('${escAttr(avatarUrl)}');` : ''}">${!avatarUrl ? escHtml((displayName || data.sender || '?')[0]?.toUpperCase() || '?') : ''}</div>`
       : `<span class="msg-compact-ts">${timeStr}</span>`}
     </div>
     <div class="msg-body">
       ${isGroupStart
       ? `<div class="msg-meta">
-            <span class="msg-sender${isAdmin ? " admin-name" : ""}" title="View profile" onclick="openUserProfile('${escAttr(data.sender)}')">${escHtml(displayName)}</span>
+            <span class="msg-sender" title="View profile" onclick="openUserProfile('${escAttr(data.sender)}')">${escHtml(displayName)}</span>
             ${showUsernameTag ? `<span class="msg-username">@${escHtml(data.sender)}</span>` : ''}
             <span class="msg-time" title="${escAttr(fullTs)}">${timeStr}</span>
           </div>`
@@ -1464,13 +1480,13 @@ function renderMessageInto(wrap, data, isGroupStart) {
   wrap.innerHTML = `
     <div class="msg-avatar-col">
       ${isGroupStart
-      ? `<div class="msg-avatar${isAdmin ? " admin-color" : ""}" title="View profile" onclick="openUserProfile('${escAttr(data.sender)}')" style="${avatarUrl ? `background-image:url('${escAttr(avatarUrl)}');` : ''}">${!avatarUrl ? escHtml((displayName || data.sender || '?')[0]?.toUpperCase() || '?') : ''}</div>`
+      ? `<div class="msg-avatar" title="View profile" onclick="openUserProfile('${escAttr(data.sender)}')" style="${avatarUrl ? `background-image:url('${escAttr(avatarUrl)}');` : ''}">${!avatarUrl ? escHtml((displayName || data.sender || '?')[0]?.toUpperCase() || '?') : ''}</div>`
       : `<span class="msg-compact-ts">${timeStr}</span>`}
     </div>
     <div class="msg-body">
       ${isGroupStart
       ? `<div class="msg-meta">
-            <span class="msg-sender${isAdmin ? " admin-name" : ""}" title="View profile" onclick="openUserProfile('${escAttr(data.sender)}')">${escHtml(displayName)}</span>
+            <span class="msg-sender" title="View profile" onclick="openUserProfile('${escAttr(data.sender)}')">${escHtml(displayName)}</span>
             ${showUsernameTag ? `<span class="msg-username">@${escHtml(data.sender)}</span>` : ''}
             <span class="msg-time" title="${escAttr(fullTs)}">${timeStr}</span>
           </div>`
@@ -1535,6 +1551,7 @@ document.addEventListener("DOMContentLoaded", () => {
     input.addEventListener("input", event => {
       handleTypingInput();
       updateAutocompleteSuggestions();
+      onConsoleInput(event);
     });
     UI.mentionSuggestions()?.addEventListener('mousedown', e => {
       e.preventDefault();
@@ -1586,15 +1603,15 @@ function initCommandPalette() {
 
 function onConsoleInput(e) {
   const v = (e.target.value || '');
-  if (!v.startsWith('/') || AppState.currentUser !== ADMIN) { hideCommandPalette(); return; }
+  if (!v.startsWith('/')) { hideCommandPalette(); return; }
   const q = v.slice(1).toLowerCase();
-  const cmds = [
-    { k: '/nick', d: 'Change your display name' },
-    { k: '/dnd', d: '/dnd on|off [@user]' },
-    { k: '/push', d: 'Send push to all users' },
-  ];
-  const filtered = cmds.filter(c => c.k.slice(1).startsWith(q) || c.k.startsWith('/' + q));
-  renderCmdPalette(filtered.length ? filtered : cmds);
+  const cmds = SLASH_COMMANDS.filter(cmd => !cmd.admin || AppState.currentUser === ADMIN);
+  const filtered = cmds.filter(c => c.key.slice(1).startsWith(q) || c.key.startsWith('/' + q));
+  if (!filtered.length) {
+    hideCommandPalette();
+    return;
+  }
+  renderCmdPalette(filtered);
 }
 
 function renderCmdPalette(list) {
@@ -1603,9 +1620,9 @@ function renderCmdPalette(list) {
   for (const it of list) {
     const div = document.createElement('div');
     div.className = 'cmd-item';
-    div.innerHTML = `<strong>${escHtml(it.k)}</strong><span class="muted">${escHtml(it.d)}</span>`;
+    div.innerHTML = `<strong>${escHtml(it.key)}</strong><span class="muted">${escHtml(it.label)}</span>`;
     div.onclick = () => {
-      UI.consoleInput().value = it.k + ' ';
+      UI.consoleInput().value = it.key + ' ';
       UI.consoleInput().focus();
       hideCommandPalette();
     };
@@ -1695,6 +1712,7 @@ function findCommandContext(text, cursor) {
 function getSlashCommandCandidates(query) {
   const q = String(query || '').toLowerCase();
   return SLASH_COMMANDS
+    .filter(cmd => !cmd.admin || AppState.currentUser === ADMIN)
     .filter(cmd => !q || cmd.key.slice(1).startsWith(q))
     .map(cmd => ({ type: 'command', key: cmd.key, label: cmd.label }));
 }
@@ -1764,6 +1782,61 @@ function commitMentionSelection() {
   hideMentionSuggestions();
   input.focus();
   return true;
+}
+
+function tryHandleLocalSlashCommand(val) {
+  const parts = String(val || '').trim().split(/\s+/);
+  const cmd = (parts[0] || '').toLowerCase();
+  const arg = parts.slice(1).join(' ').trim();
+  const random = items => items[Math.floor(Math.random() * items.length)];
+  const rollDice = spec => {
+    const match = /^([0-9]+)d([0-9]+)$/i.exec(spec);
+    const rolls = [];
+    if (match) {
+      const count = Math.min(Math.max(Number(match[1]), 1), 20);
+      const sides = Math.min(Math.max(Number(match[2]), 2), 200);
+      for (let i = 0; i < count; i += 1) rolls.push(1 + Math.floor(Math.random() * sides));
+    } else {
+      rolls.push(1 + Math.floor(Math.random() * 6));
+    }
+    return rolls;
+  };
+  switch (cmd) {
+    case '/help':
+      showToast('Try /shrug, /tableflip, /coin, /roll, /8ball, /me, /mock, /reverse, /say, /poke');
+      return { handled: true, content: null };
+    case '/shrug': return { handled: true, content: '¯\\_(ツ)_/¯' };
+    case '/tableflip': return { handled: true, content: '(╯°□°）╯︵ ┻━┻' };
+    case '/unflip': return { handled: true, content: '┬─┬ ノ( ゜-゜ノ)' };
+    case '/lenny': return { handled: true, content: '( ͡° ͜ʖ ͡°)' };
+    case '/flip': return { handled: true, content: random(['(╯°□°）╯︵ ┻━┻', '┬─┬ ノ( ゜-゜ノ)', '(╯°□°）╯︵ ┻━┻', '(ง︡’-’︠)ง']) };
+    case '/coin': return { handled: true, content: `🪙 ${random(['Heads', 'Tails'])}` };
+    case '/roll': {
+      const rolls = rollDice(arg || '1d6');
+      return { handled: true, content: `🎲 ${AppProfile.displayName || AppState.currentUser} rolled ${rolls.join(', ')}${rolls.length > 1 ? ` (total ${rolls.reduce((a,b)=>a+b,0)})` : ''}` };
+    }
+    case '/dice': {
+      const rolls = rollDice(arg || '1d6');
+      return { handled: true, content: `🎲 ${AppProfile.displayName || AppState.currentUser} rolled ${rolls.join(', ')}${rolls.length > 1 ? ` (total ${rolls.reduce((a,b)=>a+b,0)})` : ''}` };
+    }
+    case '/8ball': {
+      const answers = ['It is certain.', 'Ask later.', 'No way.', 'Yes.', 'Maybe.', 'Definitely not.', 'Absolutely.', 'Probably.', 'The odds are good.', 'I have no idea.'];
+      return { handled: true, content: `🎱 ${random(answers)}` };
+    }
+    case '/me': return { handled: true, content: `*${AppProfile.displayName || AppState.currentUser} ${arg || 'does something'}*` };
+    case '/mock': {
+      const mocked = arg.split('').map((ch, idx) => idx % 2 ? ch.toUpperCase() : ch.toLowerCase()).join('');
+      return { handled: true, content: mocked || 'sPoNgEbOb' };
+    }
+    case '/reverse': return { handled: true, content: arg.split('').reverse().join('') || '' };
+    case '/say': return { handled: true, content: arg || '' };
+    case '/poke': return { handled: true, content: `*pokes ${arg || 'the air'}*` };
+    case '/announce':
+      if (AppState.currentUser !== ADMIN) return { handled: false, content: null };
+      return { handled: true, content: `📣 Announcement: ${arg || '...'}` };
+    default:
+      return { handled: false, content: null };
+  }
 }
 
 function onMentionItemClick(event) {
@@ -1895,8 +1968,25 @@ function sendMessage() {
   const val = input.value.trim();
   if (!val && !AppState.pendingAttachments.length) return;
 
-  // Handle slash commands for admins
-  if (val.startsWith('/') && AppState.currentUser === ADMIN) {
+  const attachments = AppState.pendingAttachments.slice();
+  const payloadBase = {
+    content: val,
+    replyingTo: AppState.replyTarget,
+    attachments,
+    senderDisplayName: AppProfile.displayName || AppState.currentUser,
+    senderAvatar: AppProfile.avatar || null,
+    senderPronouns: AppProfile.pronouns || '',
+    senderBio: AppProfile.bio || '',
+  };
+
+  const localCommand = tryHandleLocalSlashCommand(val);
+  if (localCommand.handled) {
+    if (localCommand.content === null) {
+      input.value = '';
+      return;
+    }
+    payloadBase.content = localCommand.content;
+  } else if (val.startsWith('/') && AppState.currentUser === ADMIN) {
     AppState.socket.emit('command:execute', val, res => {
       if (!res?.ok) showToast(res?.error || 'Command failed');
       else showToast('Command executed');
@@ -1904,10 +1994,6 @@ function sendMessage() {
     input.value = '';
     return;
   }
-
-  const attachments = AppState.pendingAttachments.slice();
-  const payloadBase = {
-    content: val,
     replyingTo: AppState.replyTarget,
     attachments,
     senderDisplayName: AppProfile.displayName || AppState.currentUser,
@@ -2304,7 +2390,7 @@ function renderMembersAndDms(onlineList, firebaseAllNames) {
       item.id = `dm-item-${name}`;
       if (!online) item.style.opacity = ".5";
       item.innerHTML = `
-        <div class="dm-avatar" style="${name === ADMIN ? "background:#e91e63;" : ""}">${escHtml((displayName || name)[0]?.toUpperCase() || '')}</div>
+        <div class="dm-avatar">${escHtml((displayName || name)[0]?.toUpperCase() || '')}</div>
         <span>${escHtml(displayName)}</span>`;
       item.onclick = () => openDm(name);
       UI.dmList().appendChild(item);
@@ -2313,8 +2399,8 @@ function renderMembersAndDms(onlineList, firebaseAllNames) {
     mItem.className = "member-item";
     if (!online) mItem.style.opacity = ".45";
     mItem.innerHTML = `
-      <div class="member-av${name === ADMIN ? " admin-color" : ""}">${escHtml((displayName || name)[0]?.toUpperCase() || '')}</div>
-      <span class="member-name${name === ADMIN ? " admin-name" : ""}">${escHtml(displayName)}${name === ADMIN ? ' <span class="role-badge admin">ADMIN</span>' : ""}</span>`;
+      <div class="member-av">${escHtml((displayName || name)[0]?.toUpperCase() || '')}</div>
+      <span class="member-name">${escHtml(displayName)}</span>`;
     UI.membersList().appendChild(mItem);
   }
   UI.onlineCount().textContent = onlineCount;
