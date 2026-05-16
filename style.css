@@ -1496,7 +1496,7 @@ body {
   background: var(--bg-mid);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  box-shadow: 0 10px 28px rgba(8,12,20,0.18);
+  box-shadow: 0 10px 28px rgba(8, 12, 20, 0.18);
 }
 
 .mention-item {
