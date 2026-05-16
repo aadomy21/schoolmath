@@ -9,6 +9,7 @@ const http = require('http');
 const path = require('path');
 const crypto = require('crypto');
 const { Server } = require('socket.io');
+const webpush = require('web-push');
 
 const PERMISSIONS = {
   VIEW_CHANNEL: 1 << 0,
@@ -204,6 +205,52 @@ app.use(express.json({ limit: '5mb' }));
 
 const root = __dirname;
 app.use(express.static(root));
+
+// --- Web Push setup ---
+// Use VAPID keys from env if provided; otherwise generate ephemeral keys (not suitable for production)
+let VAPID_PUBLIC = process.env.VAPID_PUBLIC_KEY || null;
+let VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || null;
+if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
+  const keys = webpush.generateVAPIDKeys();
+  VAPID_PUBLIC = keys.publicKey;
+  VAPID_PRIVATE = keys.privateKey;
+  console.log('Generated ephemeral VAPID keys. For persistent subscriptions, set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY.');
+}
+webpush.setVapidDetails('mailto:admin@example.com', VAPID_PUBLIC, VAPID_PRIVATE);
+
+// Store subscriptions in-memory: username -> subscription
+const pushSubscriptions = new Map();
+
+app.get('/api/push/publicKey', (req, res) => {
+  res.json({ publicKey: VAPID_PUBLIC });
+});
+
+app.post('/api/push/subscribe', express.json(), (req, res) => {
+  const { username, subscription } = req.body || {};
+  if (!username || !subscription) return res.status(400).json({ ok: false, error: 'username and subscription required' });
+  pushSubscriptions.set(String(username), subscription);
+  res.json({ ok: true });
+});
+
+app.post('/api/push/unsubscribe', express.json(), (req, res) => {
+  const { username } = req.body || {};
+  if (username) pushSubscriptions.delete(String(username));
+  res.json({ ok: true });
+});
+
+app.post('/api/push/sendTest', express.json(), async (req, res) => {
+  const payload = req.body?.payload || { title: 'Test', body: 'This is a test push' };
+  const results = [];
+  for (const [user, sub] of pushSubscriptions.entries()) {
+    try {
+      await webpush.sendNotification(sub, JSON.stringify(payload));
+      results.push({ user, ok: true });
+    } catch (e) {
+      results.push({ user, ok: false, error: String(e.message || e) });
+    }
+  }
+  res.json({ ok: true, results });
+});
 
 app.get('/api/giphy/search', async (req, res) => {
   const q = String(req.query.q || 'trending');

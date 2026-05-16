@@ -87,7 +87,7 @@ function loadSettings() {
       const parsed = JSON.parse(raw);
       AppSettings = { ...AppSettings, ...parsed };
     }
-  } catch (e) {}
+  } catch (e) { }
   applySettings();
 }
 
@@ -102,11 +102,16 @@ function saveSettings() {
 function applySettings() {
   // Desktop notifications: if enabled, ask permission if not decided
   if (AppSettings.desktopNotifications && 'Notification' in window && Notification.permission === 'default') {
-    try { Notification.requestPermission().catch(() => {}); } catch (e) {}
+    try { Notification.requestPermission().catch(() => { }); } catch (e) { }
   }
   // Sound: no-op here, playPing checks AppSettings.sound
   // Unread badge: hide if disabled
   if (!AppSettings.unreadBadge) updateUnreadBadge(0);
+  // update visual indicators
+  const ni = document.getElementById('notif-ind');
+  const si = document.getElementById('sound-ind');
+  if (ni) ni.className = 'status-ind ' + (AppSettings.desktopNotifications ? 'on' : 'off');
+  if (si) si.className = 'status-ind ' + (AppSettings.sound ? 'on' : 'off');
 }
 
 const FIREBASE_KEY_ESCAPES = {
@@ -1221,7 +1226,56 @@ function openSettings() {
     AppSettings.pushEnabled = ps;
     saveSettings();
     closeGenericModal();
+    // If push enabled, attempt registration
+    if (ps) registerServiceWorkerAndSubscribe();
+    else unregisterPushSubscription();
   };
+}
+
+async function registerServiceWorkerAndSubscribe() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    showToast('Push not supported in this browser');
+    return;
+  }
+  try {
+    const reg = await navigator.serviceWorker.register('/sw.js');
+    const resp = await fetch('/api/push/publicKey');
+    const { publicKey } = await resp.json();
+    const converted = urlBase64ToUint8Array(publicKey);
+    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: converted });
+    // send subscription to server
+    await fetch('/api/push/subscribe', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: AppState.currentUser, subscription: sub })
+    });
+    showToast('Push subscribed');
+  } catch (e) {
+    showToast('Push subscription failed');
+  }
+}
+
+async function unregisterPushSubscription() {
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (!reg) return;
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) {
+      await fetch('/api/push/unsubscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: AppState.currentUser }) });
+      await sub.unsubscribe();
+    }
+    showToast('Push unsubscribed');
+  } catch (e) {
+    showToast('Failed to unsubscribe');
+  }
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
 }
 
 function sendOrCommitEdit() {

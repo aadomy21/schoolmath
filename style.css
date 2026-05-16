@@ -2092,3 +2092,17 @@ aside,
 .unread-badge[data-count="0"] {
   display: none;
 }
+
+/* Status indicators */
+.status-ind {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-left: 8px;
+  vertical-align: middle;
+  background: transparent;
+  box-shadow: none;
+}
+.status-ind.on { background: var(--accent); box-shadow: 0 0 6px rgba(88,101,242,0.6); }
+.status-ind.off { background: #555; opacity: .5; }
