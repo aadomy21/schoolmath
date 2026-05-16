@@ -446,6 +446,8 @@ io.on('connection', socket => {
     store.messages[key].push(msg);
     trimMessages(key);
     io.to(roomGuildChannel(guildId, channelId)).emit('message:new', { guildId, channelId, message: msg });
+    // Notify all members of the guild (including those not currently in the channel)
+    io.to(roomGuild(guildId)).emit('notification:new', { guildId, channelId, message: msg });
     cb?.({ ok: true, message: msg });
   });
 

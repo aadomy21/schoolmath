@@ -285,8 +285,28 @@ function revealApp() {
   const av = UI.userAvatar();
   av.textContent = u[0].toUpperCase();
   if (u === ADMIN) av.style.background = "#e91e63";
+  // Request notification permission after user login (user gesture)
+  requestNotificationPermission();
   startRealtime();
 }
+
+function updateUnreadBadge(count) {
+  const b = document.getElementById('unread-badge');
+  if (!b) return;
+  const n = Number(count) || 0;
+  if (n <= 0) {
+    b.setAttribute('data-count', '0');
+    b.textContent = '';
+    b.setAttribute('aria-hidden', 'true');
+  } else {
+    b.setAttribute('data-count', String(n));
+    b.textContent = String(n > 99 ? '99+' : n);
+    b.removeAttribute('aria-hidden');
+  }
+}
+
+// Clear unread badge when user focuses the window or opens a channel
+window.addEventListener('focus', () => updateUnreadBadge(0));
 
 function updateChromeForBackend() {
   const fb = isFirebaseBackend();
@@ -474,6 +494,54 @@ function toggleReactionFirebase(msgId, emoji) {
   });
 }
 
+// --- Notifications & Socket ---
+
+function requestNotificationPermission() {
+  if (!('Notification' in window)) return;
+  try {
+    if (Notification.permission === 'default') Notification.requestPermission().catch(() => { });
+  } catch (e) { }
+}
+
+function playPing() {
+  try {
+    const C = window.AudioContext || window.webkitAudioContext;
+    const ctx = new C();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.value = 880;
+    g.gain.value = 0.02;
+    o.connect(g); g.connect(ctx.destination);
+    o.start();
+    setTimeout(() => { o.stop(); ctx.close(); }, 120);
+  } catch (e) { }
+}
+
+function showDesktopNotification(title, body, icon, data) {
+  if (!('Notification' in window)) return false;
+  if (Notification.permission !== 'granted') return false;
+  try {
+    const n = new Notification(title, { body, icon, data });
+    n.onclick = () => { window.focus(); n.close(); };
+    return true;
+  } catch (e) { return false; }
+}
+
+function handleIncomingNotification({ guildId, channelId, message }) {
+  if (!message) return;
+  if (message.sender === AppState.currentUser) return;
+  const channelName = (AppState.guilds.find(g => g.id === guildId)?.channels.find(c => c.id === channelId)?.name) || channelId;
+  const title = `${message.sender} in #${channelName}`;
+  const body = message.content ? (message.content.length > 120 ? message.content.slice(0, 120) + '…' : message.content) : 'New message';
+  const shown = showDesktopNotification(title, body, '/avatar.png', { guildId, channelId, messageId: message.id });
+  if (!shown) {
+    const current = Number(document.getElementById('unread-badge')?.getAttribute('data-count') || 0) || 0;
+    updateUnreadBadge(current + 1);
+  }
+  playPing();
+}
+
 // --- Socket ---
 function connectSocket() {
   if (AppState.socket) AppState.socket.disconnect();
@@ -542,6 +610,10 @@ function connectSocket() {
 
   AppState.socket.on("presence:list", ({ online }) => {
     renderMembersAndDms(online || []);
+  });
+
+  AppState.socket.on("notification:new", payload => {
+    try { handleIncomingNotification(payload); } catch (e) { }
   });
 
   AppState.socket.on("typing:update", ({ key, users }) => {
@@ -697,6 +769,8 @@ function selectGuildChannel(guildId, channelId) {
     AppState.roomMessages = res.messages || [];
     rerenderAllMessages();
     updateSidebarManageUi();
+    // clear unread badge when user opens a channel
+    updateUnreadBadge(0);
   });
 }
 
@@ -732,6 +806,8 @@ function openDm(peer) {
     AppState.activeDmKey = res.dmKey;
     AppState.roomMessages = res.messages || [];
     rerenderAllMessages();
+    // clear unread badge when opening DM
+    updateUnreadBadge(0);
   });
 }
 

@@ -2070,3 +2070,25 @@ aside,
   margin-left: 6px;
   user-select: none;
 }
+
+/* Unread badge shown near channel title */
+.unread-badge {
+  display: inline-block;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  margin-left: 10px;
+  font-size: 12px;
+  line-height: 20px;
+  border-radius: 12px;
+  background: var(--accent);
+  color: #fff;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.unread-badge:empty,
+.unread-badge[aria-hidden="true"],
+.unread-badge[data-count="0"] {
+  display: none;
+}
