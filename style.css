@@ -902,16 +902,22 @@ body {
 /* ---- Individual message ---- */
 .msg-wrap {
   display: flex;
-  padding: 2px 16px;
+  padding: 4px 16px;
   position: relative;
   transition: background var(--speed);
   animation: slideIn var(--speed) ease-out;
-  min-height: 0;
+  min-height: auto;
+  margin-bottom: 2px;
+}
+
+.msg-wrap[style*="display: none"] {
+  animation: none;
 }
 
 .msg-wrap.group-start {
   margin-top: 14px;
-  padding-top: 4px;
+  padding-top: 8px;
+  margin-bottom: 4px;
 }
 
 .msg-wrap:hover {
@@ -1959,6 +1965,35 @@ aside,
 .modal-body {
   padding: 12px 16px 16px;
   overflow-y: auto;
+}
+
+.btn-modal {
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--divider);
+  background: var(--bg-mid);
+  color: var(--text-norm);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background var(--speed), border-color var(--speed);
+}
+
+.btn-modal:hover {
+  background: var(--bg-hover);
+  border-color: #555;
+}
+
+.btn-modal-primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.btn-modal-primary:hover {
+  background: var(--accent-hov);
+  border-color: var(--accent-hov);
 }
 
 .giphy-search {

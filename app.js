@@ -67,6 +67,9 @@ const AppState = {
   pendingAttachments: [],
   lastChannelByGuild: {},
   conversationScratch: {},
+  virtualizationBuffer: 10,
+  visibleMessageStart: 0,
+  visibleMessageEnd: 0,
 };
 
 const $ = id => document.getElementById(id);
@@ -333,20 +336,27 @@ function subscribeFirebaseRoom(path) {
     renderWelcomeBanner();
     let prevSender = null;
     let prevDate = null;
+    let messageIndex = 0;
     snap.forEach(child => {
       const data = child.val();
       const tsRaw = data?.timestamp;
       const tsNum = typeof tsRaw === "number" ? tsRaw : (tsRaw && typeof tsRaw === "object" ? Date.now() : Date.now());
       const msgDate = new Date(tsNum).toDateString();
       const isGroup = prevSender === data.sender && prevDate === msgDate;
-      if (prevDate !== msgDate) renderDayDivider(tsNum);
+      if (prevDate !== msgDate) {
+        renderDayDivider(tsNum);
+        messageIndex++;
+      }
       const id = child.key;
-      renderMessage(id, data, !isGroup);
+      renderMessage(id, data, !isGroup, messageIndex);
+      messageIndex++;
       AppState.roomMessages.push({ id, ...data });
       prevSender = data.sender;
       prevDate = msgDate;
     });
     scrollToBottom();
+    initVirtualization();
+    setTimeout(() => updateVisibleMessages(), 50);
   });
 }
 
@@ -707,15 +717,22 @@ function rerenderAllMessages() {
   renderWelcomeBanner();
   let prevSender = null;
   let prevDate = null;
+  let messageIndex = 0;
   for (const m of AppState.roomMessages) {
     const msgDate = new Date(m.timestamp).toDateString();
     const isGroup = prevSender === m.sender && prevDate === msgDate;
-    if (prevDate !== msgDate) renderDayDivider(m.timestamp);
-    renderMessage(m.id, m, !isGroup);
+    if (prevDate !== msgDate) {
+      renderDayDivider(m.timestamp);
+      messageIndex++;
+    }
+    renderMessage(m.id, m, !isGroup, messageIndex);
+    messageIndex++;
     prevSender = m.sender;
     prevDate = msgDate;
   }
   scrollToBottom();
+  initVirtualization();
+  setTimeout(() => updateVisibleMessages(), 50);
 }
 
 function renderWelcomeBanner() {
@@ -769,12 +786,13 @@ function normalizeReactions(data) {
   return out;
 }
 
-function renderMessage(msgId, data, isGroupStart) {
+function renderMessage(msgId, data, isGroupStart, msgIndex = 0) {
   const wrap = document.createElement("div");
   wrap.className = `msg-wrap${isGroupStart ? " group-start" : ""}`;
   wrap.setAttribute("data-id", msgId);
   wrap.setAttribute("data-sender", data.sender || "");
   wrap.setAttribute("data-content", data.content || "");
+  wrap.setAttribute("data-msg-index", msgIndex);
 
   const isAdmin = data.sender === ADMIN;
   const isOwn = data.sender === AppState.currentUser;
@@ -840,16 +858,16 @@ function renderMessage(msgId, data, isGroupStart) {
     ${replyHTML}
     <div class="msg-avatar-col">
       ${isGroupStart
-        ? `<div class="msg-avatar${isAdmin ? " admin-color" : ""}" title="${escAttr(data.sender)}">${(data.sender || "?")[0].toUpperCase()}</div>`
-        : `<span class="msg-compact-ts">${timeStr}</span>`}
+      ? `<div class="msg-avatar${isAdmin ? " admin-color" : ""}" title="${escAttr(data.sender)}">${(data.sender || "?")[0].toUpperCase()}</div>`
+      : `<span class="msg-compact-ts">${timeStr}</span>`}
     </div>
     <div class="msg-body">
       ${isGroupStart
-        ? `<div class="msg-meta">
+      ? `<div class="msg-meta">
             <span class="msg-sender${isAdmin ? " admin-name" : ""}" title="${escAttr(data.sender)}">${escHtml(data.sender || "")}${isAdmin ? ' <span class="role-badge admin">ADMIN</span>' : ""}</span>
             <span class="msg-time" title="${escAttr(fullTs)}">${timeStr}</span>
           </div>`
-        : ""}
+      : ""}
       <div class="msg-content">${bodyContent}</div>
       ${attachHTML}
       ${reactionsHTML}
@@ -937,16 +955,16 @@ function renderMessageInto(wrap, data, isGroupStart) {
     ${replyHTML}
     <div class="msg-avatar-col">
       ${isGroupStart
-        ? `<div class="msg-avatar${isAdmin ? " admin-color" : ""}" title="${escAttr(data.sender)}">${(data.sender || "?")[0].toUpperCase()}</div>`
-        : `<span class="msg-compact-ts">${timeStr}</span>`}
+      ? `<div class="msg-avatar${isAdmin ? " admin-color" : ""}" title="${escAttr(data.sender)}">${(data.sender || "?")[0].toUpperCase()}</div>`
+      : `<span class="msg-compact-ts">${timeStr}</span>`}
     </div>
     <div class="msg-body">
       ${isGroupStart
-        ? `<div class="msg-meta">
+      ? `<div class="msg-meta">
             <span class="msg-sender${isAdmin ? " admin-name" : ""}">${escHtml(data.sender || "")}</span>
             <span class="msg-time" title="${escAttr(fullTs)}">${timeStr}</span>
           </div>`
-        : ""}
+      : ""}
       <div class="msg-content">${bodyContent}</div>
       ${attachHTML}
       ${reactionsHTML}
@@ -1105,22 +1123,24 @@ function commitEdit() {
 }
 
 function deleteMessage(msgId) {
-  if (!confirm("Delete this message?")) return;
-  if (isFirebaseBackend()) {
-    db.ref(`${AppState.currentChatPath}/${msgId}`).remove();
+  showConfirmModal("Delete Message?", "Are you sure you want to delete this message? This action cannot be undone.").then(confirmed => {
+    if (!confirmed) return;
+    if (isFirebaseBackend()) {
+      db.ref(`${AppState.currentChatPath}/${msgId}`).remove();
+      hideMenu();
+      return;
+    }
+    if (AppState.view === "dm") {
+      AppState.socket.emit("dm:delete", { dmKey: AppState.activeDmKey, messageId: msgId });
+    } else {
+      AppState.socket.emit("message:delete", {
+        guildId: AppState.activeGuildId,
+        channelId: AppState.activeChannelId,
+        messageId: msgId,
+      });
+    }
     hideMenu();
-    return;
-  }
-  if (AppState.view === "dm") {
-    AppState.socket.emit("dm:delete", { dmKey: AppState.activeDmKey, messageId: msgId });
-  } else {
-    AppState.socket.emit("message:delete", {
-      guildId: AppState.activeGuildId,
-      channelId: AppState.activeChannelId,
-      messageId: msgId,
-    });
-  }
-  hideMenu();
+  });
 }
 
 function toggleReaction(msgId, emoji) {
@@ -1337,18 +1357,53 @@ function promptCreateChannel() {
     return;
   }
   if (!myPerm(PERM.MANAGE_CHANNELS)) return showToast("No permission.");
-  const name = prompt("Channel name?");
-  if (!name?.trim()) return;
-  const typePick = confirm("OK = Text channel, Cancel = Voice channel") ? "text" : "voice";
-  AppState.socket.emit("channel:create", {
-    guildId: AppState.activeGuildId,
-    name: name.trim(),
-    type: typePick,
-    category: typePick === "voice" ? "Voice Channels" : "Text Channels",
-  }, res => {
-    if (!res?.ok) return showToast(res.error || "Could not create channel.");
-    showToast("Channel created.");
+
+  const modal = document.getElementById("channel-modal");
+  const nameInput = document.getElementById("channel-name-input");
+  const createBtn = document.getElementById("channel-create");
+  const cancelBtn = document.getElementById("channel-cancel");
+  const closeBtn = document.getElementById("channel-modal-close");
+
+  nameInput.value = "";
+  document.querySelector('input[name="channel-type"][value="text"]').checked = true;
+
+  const handleCreate = () => {
+    const name = nameInput.value.trim();
+    if (!name) {
+      showToast("Please enter a channel name.");
+      return;
+    }
+    const type = document.querySelector('input[name="channel-type"]:checked').value;
+    cleanup();
+    AppState.socket.emit("channel:create", {
+      guildId: AppState.activeGuildId,
+      name: name,
+      type: type,
+      category: type === "voice" ? "Voice Channels" : "Text Channels",
+    }, res => {
+      if (!res?.ok) return showToast(res.error || "Could not create channel.");
+      showToast("Channel created.");
+    });
+  };
+
+  const handleCancel = () => cleanup();
+
+  const cleanup = () => {
+    createBtn.removeEventListener("click", handleCreate);
+    cancelBtn.removeEventListener("click", handleCancel);
+    closeBtn.removeEventListener("click", handleCancel);
+    modal.classList.add("hidden");
+  };
+
+  createBtn.addEventListener("click", handleCreate);
+  cancelBtn.addEventListener("click", handleCancel);
+  closeBtn.addEventListener("click", handleCancel);
+  nameInput.addEventListener("keydown", e => {
+    if (e.key === "Enter") handleCreate();
+    if (e.key === "Escape") handleCancel();
   });
+  modal.classList.remove("hidden");
+  nameInput.focus();
 }
 
 // --- Members + DMs ---
@@ -1445,12 +1500,16 @@ function clearTyping() {
 
 // --- Context menu ---
 window.addEventListener("contextmenu", e => {
+  const appUI = document.getElementById("app-ui");
+  if (appUI && appUI.contains(e.target)) {
+    e.preventDefault();
+  }
+
   const msgEl = e.target.closest(".msg-wrap");
   if (!msgEl) {
     hideMenu();
     return;
   }
-  e.preventDefault();
   activeMsgId = msgEl.getAttribute("data-id");
   activeMsgData = {
     sender: msgEl.getAttribute("data-sender"),
@@ -1602,6 +1661,79 @@ function escAttr(str) {
     .replace(/"/g, "&quot;")
     .replace(/\n/g, " ")
     .replace(/\r/g, "");
+}
+
+function updateVisibleMessages() {
+  const container = UI.msgContainer();
+  if (!container) return;
+
+  const containerHeight = container.clientHeight;
+  const scrollTop = container.scrollTop;
+  const msgElements = container.querySelectorAll('.msg-wrap[data-msg-index]');
+
+  let firstVisible = 0;
+  let lastVisible = msgElements.length - 1;
+
+  for (let i = 0; i < msgElements.length; i++) {
+    const el = msgElements[i];
+    const rect = el.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    const elTopInContainer = el.offsetTop;
+    const elBottomInContainer = elTopInContainer + el.offsetHeight;
+
+    if (elBottomInContainer >= scrollTop && elTopInContainer <= scrollTop + containerHeight) {
+      if (firstVisible === 0) firstVisible = i;
+      lastVisible = i;
+    }
+  }
+
+  const buffer = AppState.virtualizationBuffer;
+  AppState.visibleMessageStart = Math.max(0, firstVisible - buffer);
+  AppState.visibleMessageEnd = Math.min(msgElements.length - 1, lastVisible + buffer);
+
+  for (let i = 0; i < msgElements.length; i++) {
+    const el = msgElements[i];
+    if (i >= AppState.visibleMessageStart && i <= AppState.visibleMessageEnd) {
+      el.style.display = '';
+    } else {
+      el.style.display = 'none';
+    }
+  }
+}
+
+function initVirtualization() {
+  const container = UI.msgContainer();
+  if (container) {
+    container.addEventListener('scroll', updateVisibleMessages, { passive: true });
+  }
+}
+
+function showConfirmModal(title, message) {
+  return new Promise(resolve => {
+    const modal = document.getElementById("confirm-modal");
+    document.getElementById("confirm-title").textContent = title;
+    document.getElementById("confirm-message").textContent = message;
+
+    const handleOk = () => {
+      cleanup();
+      resolve(true);
+    };
+
+    const handleCancel = () => {
+      cleanup();
+      resolve(false);
+    };
+
+    const cleanup = () => {
+      document.getElementById("confirm-ok").removeEventListener("click", handleOk);
+      document.getElementById("confirm-cancel").removeEventListener("click", handleCancel);
+      modal.classList.add("hidden");
+    };
+
+    document.getElementById("confirm-ok").addEventListener("click", handleOk);
+    document.getElementById("confirm-cancel").addEventListener("click", handleCancel);
+    modal.classList.remove("hidden");
+  });
 }
 
 function linkify(text) {
