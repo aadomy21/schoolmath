@@ -273,14 +273,14 @@ app.post('/api/push/subscribe', express.json(), (req, res) => {
   const { username, subscription } = req.body || {};
   if (!username || !subscription) return res.status(400).json({ ok: false, error: 'username and subscription required' });
   pushSubscriptions.set(String(username), subscription);
-  try { saveData(); } catch (e) {}
+  try { saveData(); } catch (e) { }
   res.json({ ok: true });
 });
 
 app.post('/api/push/unsubscribe', express.json(), (req, res) => {
   const { username } = req.body || {};
   if (username) pushSubscriptions.delete(String(username));
-  try { saveData(); } catch (e) {}
+  try { saveData(); } catch (e) { }
   res.json({ ok: true });
 });
 
@@ -356,7 +356,7 @@ io.on('connection', socket => {
     }
     io.emit('user:updated', { username: user, displayName, avatar, dnd });
     // persist change
-    try { saveData(); } catch (e) {}
+    try { saveData(); } catch (e) { }
     cb?.({ ok: true });
   });
 
