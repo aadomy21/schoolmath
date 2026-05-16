@@ -1,6 +1,6 @@
 self.addEventListener('push', event => {
   let data = { title: 'New message', body: 'You have a new message', url: '/' };
-  try { if (event.data) data = event.data.json(); } catch (e) {}
+  try { if (event.data) data = event.data.json(); } catch (e) { }
   const options = {
     body: data.body,
     icon: data.icon || '/avatar.png',

@@ -206,6 +206,50 @@ app.use(express.json({ limit: '5mb' }));
 const root = __dirname;
 app.use(express.static(root));
 
+// Simple persistence to disk for prototype: store -> data.json
+const fs = require('fs');
+const DATA_PATH = path.join(root, 'data.json');
+
+function loadData() {
+  try {
+    if (!fs.existsSync(DATA_PATH)) return;
+    const raw = fs.readFileSync(DATA_PATH, 'utf8');
+    const parsed = JSON.parse(raw);
+    if (parsed && parsed.store) {
+      // shallow merge guilds/messages/dmMessages
+      if (parsed.store.guilds) store.guilds = parsed.store.guilds;
+      if (parsed.store.messages) store.messages = parsed.store.messages;
+      if (parsed.store.dmMessages) store.dmMessages = parsed.store.dmMessages;
+    }
+    if (parsed && parsed.pushSubscriptions) {
+      for (const [u, sub] of Object.entries(parsed.pushSubscriptions || {})) {
+        pushSubscriptions.set(u, sub);
+      }
+    }
+    console.log('Loaded data from', DATA_PATH);
+  } catch (e) {
+    console.warn('Could not load data.json', e?.message || e);
+  }
+}
+
+function saveData() {
+  try {
+    const out = {
+      store: {
+        guilds: store.guilds,
+        messages: store.messages,
+        dmMessages: store.dmMessages,
+      },
+      pushSubscriptions: Object.fromEntries(pushSubscriptions.entries()),
+    };
+    fs.writeFileSync(DATA_PATH, JSON.stringify(out, null, 2), 'utf8');
+  } catch (e) {
+    console.warn('Could not save data.json', e?.message || e);
+  }
+}
+
+loadData();
+
 // --- Web Push setup ---
 // Use VAPID keys from env if provided; otherwise generate ephemeral keys (not suitable for production)
 let VAPID_PUBLIC = process.env.VAPID_PUBLIC_KEY || null;
@@ -229,12 +273,14 @@ app.post('/api/push/subscribe', express.json(), (req, res) => {
   const { username, subscription } = req.body || {};
   if (!username || !subscription) return res.status(400).json({ ok: false, error: 'username and subscription required' });
   pushSubscriptions.set(String(username), subscription);
+  try { saveData(); } catch (e) {}
   res.json({ ok: true });
 });
 
 app.post('/api/push/unsubscribe', express.json(), (req, res) => {
   const { username } = req.body || {};
   if (username) pushSubscriptions.delete(String(username));
+  try { saveData(); } catch (e) {}
   res.json({ ok: true });
 });
 
@@ -297,6 +343,65 @@ function clearTypingForUser(username, key) {
 io.on('connection', socket => {
   /** @type {string|null} */
   let user = null;
+
+  socket.on('user:update', (payload, cb) => {
+    if (!user) return cb?.({ ok: false });
+    const { displayName, avatar, dnd } = payload || {};
+    // update member metadata in all guilds where user is a member
+    for (const gid of Object.keys(store.guilds)) {
+      const g = store.guilds[gid];
+      if (g.members[user]) {
+        g.members[user] = { ...(g.members[user] || {}), displayName: displayName || g.members[user].displayName || user, avatar: avatar !== undefined ? avatar : g.members[user].avatar, dnd: !!dnd };
+      }
+    }
+    io.emit('user:updated', { username: user, displayName, avatar, dnd });
+    // persist change
+    try { saveData(); } catch (e) {}
+    cb?.({ ok: true });
+  });
+
+  socket.on('command:execute', (cmd, cb) => {
+    if (!user) return cb?.({ ok: false });
+    if (user !== ADMIN) return cb?.({ ok: false, error: 'Not allowed' });
+    const parts = String(cmd || '').trim().split(/\s+/);
+    const name = parts[0] || '';
+    if (name === '/nick') {
+      const newName = parts.slice(1).join(' ').slice(0, 64) || null;
+      if (!newName) return cb?.({ ok: false, error: 'Provide a new display name' });
+      for (const gid of Object.keys(store.guilds)) {
+        const g = store.guilds[gid];
+        if (g.members[user]) g.members[user] = { ...(g.members[user] || {}), displayName: newName };
+      }
+      io.emit('user:updated', { username: user, displayName: newName });
+      return cb?.({ ok: true });
+    }
+    if (name === '/dnd') {
+      const val = (parts[1] || '').toLowerCase();
+      const on = val === 'on' || val === 'true' || val === '1';
+      const target = parts[2] ? parts[2].replace(/^@/, '').toLowerCase() : user;
+      for (const gid of Object.keys(store.guilds)) {
+        const g = store.guilds[gid];
+        if (g.members[target]) g.members[target] = { ...(g.members[target] || {}), dnd: !!on };
+      }
+      io.emit('user:updated', { username: target, dnd: !!on });
+      return cb?.({ ok: true });
+    }
+    if (name === '/push') {
+      const payload = { title: `Admin: ${user}`, body: parts.slice(1).join(' ') || 'Admin message', url: '/' };
+      // send to all subscriptions
+      const results = [];
+      for (const [u, sub] of pushSubscriptions.entries()) {
+        try {
+          webpush.sendNotification(sub, JSON.stringify(payload));
+          results.push({ user: u, ok: true });
+        } catch (e) {
+          results.push({ user: u, ok: false, error: String(e.message || e) });
+        }
+      }
+      return cb?.({ ok: true, results });
+    }
+    return cb?.({ ok: false, error: 'Unknown command' });
+  });
 
   socket.on('auth', (payload, cb) => {
     const username = typeof payload?.username === 'string' ? payload.username.trim().toLowerCase() : '';
@@ -495,6 +600,40 @@ io.on('connection', socket => {
     io.to(roomGuildChannel(guildId, channelId)).emit('message:new', { guildId, channelId, message: msg });
     // Notify all members of the guild (including those not currently in the channel)
     io.to(roomGuild(guildId)).emit('notification:new', { guildId, channelId, message: msg });
+    // detect mentions like @username and notify mentioned users individually
+    try {
+      const re = /@([a-z0-9._-]{1,48})/gi;
+      const mentioned = new Set();
+      let m;
+      while ((m = re.exec(msg.content || ''))) {
+        mentioned.add((m[1] || '').toLowerCase());
+      }
+      for (const mentionedUser of mentioned) {
+        if (!mentionedUser || mentionedUser === user) continue;
+        // check if user is a member and their dnd setting
+        let isDnd = false;
+        for (const gid of Object.keys(store.guilds)) {
+          const g = store.guilds[gid];
+          const mem = g.members[mentionedUser];
+          if (mem && mem.dnd) { isDnd = true; break; }
+        }
+        // emit socket notification to mentioned user's sockets
+        const set = socketsByUser.get(mentionedUser);
+        if (set) {
+          for (const sid of set) {
+            io.to(sid).emit('notification:mention', { guildId, channelId, message: msg });
+          }
+        }
+        // send push if we have subscription and user not in DND
+        if (!isDnd && pushSubscriptions.has(mentionedUser)) {
+          const sub = pushSubscriptions.get(mentionedUser);
+          try {
+            const payload = { title: `${msg.sender} mentioned you`, body: msg.content.slice(0, 120), url: '/' };
+            webpush.sendNotification(sub, JSON.stringify(payload));
+          } catch (e) { /* ignore */ }
+        }
+      }
+    } catch (e) { }
     cb?.({ ok: true, message: msg });
   });
 
@@ -668,6 +807,16 @@ setInterval(() => {
     if (Object.keys(typingState[k]).length === 0) delete typingState[k];
   }
 }, 2000);
+
+// Periodically persist data to disk for prototype
+setInterval(() => {
+  try { saveData(); } catch (e) { }
+}, 15000);
+
+process.on('SIGINT', () => {
+  try { saveData(); } catch (e) { }
+  process.exit(0);
+});
 
 const PORT = Number(process.env.PORT) || 3000;
 server.listen(PORT, () => {

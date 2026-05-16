@@ -1013,6 +1013,21 @@ body {
   color: #e91e63;
 }
 
+/* Mentions */
+.msg-content a.mention {
+  color: var(--text-link);
+  background: rgba(0, 176, 244, 0.06);
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-decoration: none;
+}
+
+.msg-wrap.mention-me {
+  border-left: 3px solid var(--accent);
+  padding-left: 12px;
+  background: rgba(88, 101, 242, 0.03);
+}
+
 .msg-time {
   color: var(--text-muted);
   font-size: 11px;
@@ -1032,6 +1047,26 @@ body {
   color: var(--text-link);
   text-decoration: none;
 }
+
+/* Command palette (slash commands) */
+.cmd-palette {
+  position: absolute;
+  bottom: 64px;
+  left: 24px;
+  width: 320px;
+  max-height: 240px;
+  background: var(--bg-dark);
+  border: 1px solid var(--divider);
+  box-shadow: var(--shadow-md);
+  border-radius: 6px;
+  overflow: auto;
+  z-index: 1200;
+  display: none;
+}
+.cmd-palette.visible { display: block; }
+.cmd-palette .cmd-item { padding: 10px 12px; cursor: pointer; color: var(--text-norm); }
+.cmd-palette .cmd-item:hover { background: var(--bg-hover); }
+.cmd-palette .cmd-item .muted { color: var(--text-muted); font-size: 13px; margin-left: 8px; }
 
 .msg-content a:hover {
   text-decoration: underline;
@@ -2104,5 +2139,13 @@ aside,
   background: transparent;
   box-shadow: none;
 }
-.status-ind.on { background: var(--accent); box-shadow: 0 0 6px rgba(88,101,242,0.6); }
-.status-ind.off { background: #555; opacity: .5; }
+
+.status-ind.on {
+  background: var(--accent);
+  box-shadow: 0 0 6px rgba(88, 101, 242, 0.6);
+}
+
+.status-ind.off {
+  background: #555;
+  opacity: .5;
+}

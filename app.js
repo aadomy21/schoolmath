@@ -186,6 +186,48 @@ let activeMsgId = null;
 let activeMsgData = null;
 let toastTimer = null;
 
+// User profile (display name, avatar, dnd)
+let AppProfile = {
+  displayName: null,
+  avatar: null, // data URL
+  dnd: false,
+};
+
+function loadProfile() {
+  try {
+    const raw = localStorage.getItem('app_profile');
+    if (raw) {
+      const p = JSON.parse(raw);
+      AppProfile = { ...AppProfile, ...p };
+    }
+  } catch (e) { }
+  applyProfileToUI();
+}
+
+function saveProfile() {
+  try {
+    localStorage.setItem('app_profile', JSON.stringify(AppProfile));
+    // inform server
+    if (AppState.socket && AppState.socket.connected) {
+      AppState.socket.emit('user:update', { displayName: AppProfile.displayName, avatar: AppProfile.avatar, dnd: AppProfile.dnd }, () => { });
+    }
+    applyProfileToUI();
+  } catch (e) { }
+}
+
+function applyProfileToUI() {
+  const nameEl = UI.myName();
+  const av = UI.userAvatar();
+  if (AppProfile.displayName) nameEl.textContent = AppProfile.displayName;
+  if (AppProfile.avatar) {
+    av.style.backgroundImage = `url(${AppProfile.avatar})`;
+    av.textContent = '';
+  } else {
+    av.style.backgroundImage = '';
+    av.textContent = (AppState.currentUser || '?')[0]?.toUpperCase() || '?';
+  }
+}
+
 const QUICK_EMOJIS = ["😂", "🔥", "👍", "❤️", "😭", "💀", "✅", "🙏", "😊", "🤔", "👀", "🎉"];
 
 // --- Scratch per conversation (draft + reply) ---
@@ -321,11 +363,16 @@ function revealApp() {
   UI.mathCover().style.display = "none";
   UI.appUI().classList.add("visible");
   const u = AppState.currentUser;
-  UI.myName().textContent = u;
+  UI.myName().textContent = AppProfile.displayName || u;
   UI.statusText().textContent = "Online";
   UI.statusText().style.color = "var(--green)";
   const av = UI.userAvatar();
-  av.textContent = u[0].toUpperCase();
+  if (AppProfile.avatar) {
+    av.style.backgroundImage = `url(${AppProfile.avatar})`;
+    av.textContent = '';
+  } else {
+    av.textContent = (AppProfile.displayName || u)[0].toUpperCase();
+  }
   if (u === ADMIN) av.style.background = "#e91e63";
   // Request notification permission after user login (user gesture)
   requestNotificationPermission();
@@ -631,6 +678,10 @@ function connectSocket() {
       const startCh = chMap.general || firstText?.id;
       selectGuild(gid, { skipChannel: true });
       if (startCh) selectGuildChannel(gid, startCh);
+      // inform server of profile (displayName/avatar/dnd)
+      if (AppProfile && (AppProfile.displayName || AppProfile.avatar || AppProfile.dnd)) {
+        AppState.socket.emit('user:update', { displayName: AppProfile.displayName, avatar: AppProfile.avatar, dnd: AppProfile.dnd }, () => { });
+      }
     });
   });
 
@@ -640,6 +691,18 @@ function connectSocket() {
     AppState.roomMessages.push(message);
     appendOrRerenderMessage(message.id);
     scrollToBottom();
+  });
+
+  AppState.socket.on('notification:mention', payload => {
+    try {
+      if (AppSettings.desktopNotifications && !AppProfile.dnd) handleIncomingNotification(payload);
+    } catch (e) { }
+  });
+
+  AppState.socket.on('user:updated', info => {
+    if (!info) return;
+    // refresh member lists or show toast
+    if (info.displayName) showToast(`${info.username} is now known as ${info.displayName}`);
   });
 
   AppState.socket.on("message:replace", ({ guildId, channelId, message }) => {
@@ -998,6 +1061,10 @@ function renderMessage(msgId, data, isGroupStart, msgIndex = 0) {
   }
 
   let bodyContent = linkify(escHtml(data.content || ""));
+  // convert @mentions into clickable links
+  try {
+    bodyContent = bodyContent.replace(/@([a-z0-9._-]{1,48})/gi, function (_, u) { return `<a href="#" class="mention" onclick="openDm('${u.toLowerCase()}')">@${u}</a>`; });
+  } catch (e) { }
   if (data.editedAt) bodyContent += ` <span class="msg-edited">(edited)</span>`;
 
   let attachHTML = "";
@@ -1026,7 +1093,10 @@ function renderMessage(msgId, data, isGroupStart, msgIndex = 0) {
       ${isGroupStart
       ? `<div class="msg-avatar${isAdmin ? " admin-color" : ""}" title="${escAttr(data.sender)}">${(data.sender || "?")[0].toUpperCase()}</div>`
       : `<span class="msg-compact-ts">${timeStr}</span>`}
-    </div>
+      let bodyContent = linkify(escHtml(data.content || ""));  
+      try {
+        bodyContent = bodyContent.replace(/@([a-z0-9._-]{1,48})/gi, function(_, u) { return `< a href = "#" class="mention" onclick = "openDm('${u.toLowerCase()}')" > @${ u }</a > `; });
+      } catch (e) {}
     <div class="msg-body">
       ${isGroupStart
       ? `<div class="msg-meta">
@@ -1046,6 +1116,10 @@ function renderMessage(msgId, data, isGroupStart, msgIndex = 0) {
       ${deleteBtn}
     </div>`;
   UI.msgContainer().appendChild(wrap);
+  // highlight mention if message mentions current user
+  try {
+    if (data.content && new RegExp(`@${AppState.currentUser}\b`, 'i').test(data.content)) wrap.classList.add('mention-me');
+  } catch (e) { }
 }
 
 function appendOrRerenderMessage(id) {
@@ -1195,8 +1269,57 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   // Load user settings and wire settings button
   loadSettings();
+  loadProfile();
+  initCommandPalette();
   $("btn-settings")?.addEventListener("click", openSettings);
 });
+
+// --- Slash command palette (simple, admin-only) ---
+let cmdPaletteEl = null;
+function initCommandPalette() {
+  try {
+    cmdPaletteEl = document.createElement('div');
+    cmdPaletteEl.id = 'cmd-palette';
+    cmdPaletteEl.className = 'cmd-palette';
+    document.body.appendChild(cmdPaletteEl);
+    UI.consoleInput()?.addEventListener('input', onConsoleInput);
+    UI.consoleInput()?.addEventListener('keydown', e => {
+      if (e.key === 'Escape') hideCommandPalette();
+    });
+  } catch (e) {}
+}
+
+function onConsoleInput(e) {
+  const v = (e.target.value || '');
+  if (!v.startsWith('/') || AppState.currentUser !== ADMIN) { hideCommandPalette(); return; }
+  const q = v.slice(1).toLowerCase();
+  const cmds = [
+    { k: '/nick', d: 'Change your display name' },
+    { k: '/dnd', d: '/dnd on|off [@user]' },
+    { k: '/push', d: 'Send push to all users' },
+  ];
+  const filtered = cmds.filter(c => c.k.slice(1).startsWith(q) || c.k.startsWith('/' + q) );
+  renderCmdPalette(filtered.length ? filtered : cmds);
+}
+
+function renderCmdPalette(list) {
+  if (!cmdPaletteEl) return;
+  cmdPaletteEl.innerHTML = '';
+  for (const it of list) {
+    const div = document.createElement('div');
+    div.className = 'cmd-item';
+    div.innerHTML = `<strong>${escHtml(it.k)}</strong><span class="muted">${escHtml(it.d)}</span>`;
+    div.onclick = () => {
+      UI.consoleInput().value = it.k + ' ';
+      UI.consoleInput().focus();
+      hideCommandPalette();
+    };
+    cmdPaletteEl.appendChild(div);
+  }
+  cmdPaletteEl.classList.add('visible');
+}
+
+function hideCommandPalette() { if (cmdPaletteEl) cmdPaletteEl.classList.remove('visible'); }
 
 function openSettings() {
   const modal = UI.genericModal();
@@ -1204,9 +1327,13 @@ function openSettings() {
   const body = UI.genericModalBody();
   body.innerHTML = `
     <div style="display:flex;flex-direction:column;gap:12px;">
+      <label>Display name<br><input type="text" id="s-display" value="${escAttr(AppProfile.displayName || '')}" placeholder="Your display name" style="width:100%"></label>
+      <label>Profile picture<br><input type="file" id="s-avatar-file" accept="image/*"></label>
+      <div id="s-avatar-preview" style="min-height:40px;display:flex;align-items:center;gap:8px;"><img id="s-avatar-img" src="${escAttr(AppProfile.avatar || '')}" style="max-height:48px;display:${AppProfile.avatar ? 'inline-block' : 'none'}"/><span id="s-avatar-empty" style="display:${AppProfile.avatar ? 'none' : 'inline-block'}">No avatar</span></div>
       <label><input type="checkbox" id="s-desktop" ${AppSettings.desktopNotifications ? 'checked' : ''}/> Enable desktop notifications</label>
       <label><input type="checkbox" id="s-sound" ${AppSettings.sound ? 'checked' : ''}/> Play sound on new messages</label>
       <label><input type="checkbox" id="s-unread" ${AppSettings.unreadBadge ? 'checked' : ''}/> Show unread badge</label>
+      <label><input type="checkbox" id="s-dnd" ${AppProfile.dnd ? 'checked' : ''}/> Do Not Disturb (no notifications)</label>
       <label><input type="checkbox" id="s-push" ${AppSettings.pushEnabled ? 'checked' : ''}/> Enable push notifications (requires setup)</label>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px;">
         <button type="button" id="settings-cancel" class="btn-modal">Cancel</button>
@@ -1216,15 +1343,31 @@ function openSettings() {
   modal.classList.remove('hidden');
   body.querySelector('#settings-cancel').onclick = () => closeGenericModal();
   body.querySelector('#settings-save').onclick = () => {
+    const display = String(body.querySelector('#s-display').value || '').trim();
     const ds = !!body.querySelector('#s-desktop').checked;
     const ss = !!body.querySelector('#s-sound').checked;
     const ub = !!body.querySelector('#s-unread').checked;
+    const dnd = !!body.querySelector('#s-dnd').checked;
     const ps = !!body.querySelector('#s-push').checked;
     AppSettings.desktopNotifications = ds;
     AppSettings.sound = ss;
     AppSettings.unreadBadge = ub;
+    AppProfile.displayName = display || AppProfile.displayName || AppState.currentUser;
+    AppProfile.dnd = dnd;
     AppSettings.pushEnabled = ps;
     saveSettings();
+    // handle avatar file
+    const fileInput = body.querySelector('#s-avatar-file');
+    if (fileInput && fileInput.files && fileInput.files[0]) {
+      const fr = new FileReader();
+      fr.onload = e => {
+        AppProfile.avatar = e.target.result;
+        saveProfile();
+      };
+      fr.readAsDataURL(fileInput.files[0]);
+    } else {
+      saveProfile();
+    }
     closeGenericModal();
     // If push enabled, attempt registration
     if (ps) registerServiceWorkerAndSubscribe();
@@ -1287,6 +1430,16 @@ function sendMessage() {
   const input = UI.consoleInput();
   const val = input.value.trim();
   if (!val && !AppState.pendingAttachments.length) return;
+
+  // Handle slash commands for admins
+  if (val.startsWith('/') && AppState.currentUser === ADMIN) {
+    AppState.socket.emit('command:execute', val, res => {
+      if (!res?.ok) showToast(res?.error || 'Command failed');
+      else showToast('Command executed');
+    });
+    input.value = '';
+    return;
+  }
 
   const attachments = AppState.pendingAttachments.slice();
   const payloadBase = {
