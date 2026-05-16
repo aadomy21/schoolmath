@@ -287,6 +287,14 @@ function revealApp() {
   if (u === ADMIN) av.style.background = "#e91e63";
   // Request notification permission after user login (user gesture)
   requestNotificationPermission();
+  // Preload optional ping audio so playback is allowed after user gesture
+  try {
+    const a = new Audio('/ping.mp3');
+    a.preload = 'auto';
+    a.volume = 0.6;
+    a.addEventListener('error', () => { window.__pingAudio = null; });
+    window.__pingAudio = a;
+  } catch (e) { window.__pingAudio = null; }
   startRealtime();
 }
 
@@ -504,18 +512,32 @@ function requestNotificationPermission() {
 }
 
 function playPing() {
-  try {
-    const C = window.AudioContext || window.webkitAudioContext;
-    const ctx = new C();
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.type = 'sine';
-    o.frequency.value = 880;
-    g.gain.value = 0.02;
-    o.connect(g); g.connect(ctx.destination);
-    o.start();
-    setTimeout(() => { o.stop(); ctx.close(); }, 120);
-  } catch (e) { }
+  // Prefer a short file /ping.mp3 if present, otherwise fall back to WebAudio oscillator
+  if (window.__pingAudio && typeof window.__pingAudio.play === 'function') {
+    const a = window.__pingAudio;
+    try {
+      a.currentTime = 0;
+      a.play().catch(() => {
+        // fall back to oscillator
+        try { playOscillator(); } catch (e) {}
+      });
+      return;
+    } catch (e) {}
+  }
+  try { playOscillator(); } catch (e) {}
+}
+
+function playOscillator() {
+  const C = window.AudioContext || window.webkitAudioContext;
+  const ctx = new C();
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+  o.type = 'sine';
+  o.frequency.value = 880;
+  g.gain.value = 0.02;
+  o.connect(g); g.connect(ctx.destination);
+  o.start();
+  setTimeout(() => { o.stop(); ctx.close(); }, 120);
 }
 
 function showDesktopNotification(title, body, icon, data) {
