@@ -1099,16 +1099,17 @@ body {
 /* Mentions */
 .msg-content a.mention {
   color: var(--text-link);
-  background: rgba(0, 176, 244, 0.06);
+  background: rgba(0, 176, 244, 0.08);
   padding: 2px 6px;
   border-radius: 4px;
   text-decoration: none;
 }
 
-.msg-wrap.mention-me {
-  border-left: 3px solid var(--accent);
+.msg-wrap.mention-me,
+.msg-wrap.reply-to-me {
+  border-left: 3px solid var(--yellow);
   padding-left: 12px;
-  background: rgba(88, 101, 242, 0.03);
+  background: rgba(240, 177, 50, 0.12);
 }
 
 .msg-time {
@@ -2039,31 +2040,60 @@ aside,
 /* Reply reference (in-message), Discord-style */
 .reply-ref-bar {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  align-items: flex-start;
+  gap: 8px;
   font-size: 13px;
   color: var(--text-muted);
-  margin-bottom: 4px;
+  margin-bottom: 8px;
   cursor: pointer;
   user-select: none;
+  background: var(--bg-dark);
+  border: 1px solid var(--divider);
+  border-radius: 14px;
+  padding: 10px 12px;
 }
 
 .reply-ref-bar:hover {
   color: var(--text-norm);
+  background: var(--bg-hover);
 }
 
 .reply-ref-bar .reply-ref-accent {
-  width: 3px;
+  width: 4px;
   align-self: stretch;
-  min-height: 28px;
-  background: var(--accent);
+  min-height: 40px;
+  background: var(--yellow);
   border-radius: 2px;
   flex-shrink: 0;
 }
 
+.reply-ref-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
 .reply-ref-label {
-  font-weight: 600;
-  color: #b5bac1;
+  font-weight: 700;
+  color: var(--text-bright);
+}
+
+.reply-ref-bar .reply-text {
+  color: var(--text-norm);
+  font-size: 14px;
+  line-height: 1.4;
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: calc(100vw - 220px);
+}
+
+.msg-wrap.reply-to-me {
+  border-left: 3px solid var(--yellow);
+  background: rgba(240, 177, 50, 0.14);
+  padding-left: 12px;
 }
 
 /* Reaction popover */

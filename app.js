@@ -593,13 +593,18 @@ function subscribeFirebaseRoom(path) {
     renderWelcomeBanner();
     let prevSender = null;
     let prevDate = null;
+    let prevTimestamp = null;
     let messageIndex = 0;
     snap.forEach(child => {
       const data = child.val();
       const tsRaw = data?.timestamp;
       const tsNum = typeof tsRaw === "number" ? tsRaw : (tsRaw && typeof tsRaw === "object" ? Date.now() : Date.now());
       const msgDate = new Date(tsNum).toDateString();
-      const isGroup = prevSender === data.sender && prevDate === msgDate;
+      const msgTs = Number(tsNum) || 0;
+      const isSameSender = prevSender === data.sender;
+      const isSameDate = prevDate === msgDate;
+      const isRecent = prevTimestamp && (msgTs - prevTimestamp <= 5 * 60 * 1000);
+      const isGroup = !data.replyingTo && isSameSender && isSameDate && isRecent;
       if (prevDate !== msgDate) {
         renderDayDivider(tsNum);
         messageIndex++;
@@ -610,6 +615,7 @@ function subscribeFirebaseRoom(path) {
       AppState.roomMessages.push({ id, ...data });
       prevSender = data.sender;
       prevDate = msgDate;
+      prevTimestamp = msgTs;
     });
     scrollToBottom();
     initVirtualization();
@@ -1124,10 +1130,15 @@ function rerenderAllMessages() {
   renderWelcomeBanner();
   let prevSender = null;
   let prevDate = null;
+  let prevTimestamp = null;
   let messageIndex = 0;
   for (const m of AppState.roomMessages) {
     const msgDate = new Date(m.timestamp).toDateString();
-    const isGroup = prevSender === m.sender && prevDate === msgDate;
+    const msgTs = Number(m.timestamp) || 0;
+    const isSameSender = prevSender === m.sender;
+    const isSameDate = prevDate === msgDate;
+    const isRecent = prevTimestamp && (msgTs - prevTimestamp <= 5 * 60 * 1000);
+    const isGroup = !m.replyingTo && isSameSender && isSameDate && isRecent;
     if (prevDate !== msgDate) {
       renderDayDivider(m.timestamp);
       messageIndex++;
@@ -1136,6 +1147,7 @@ function rerenderAllMessages() {
     messageIndex++;
     prevSender = m.sender;
     prevDate = msgDate;
+    prevTimestamp = msgTs;
   }
   scrollToBottom();
   initVirtualization();
@@ -1237,8 +1249,10 @@ function renderMessage(msgId, data, isGroupStart, msgIndex = 0) {
     replyHTML = `
       <div class="reply-ref-bar" onclick="scrollToMsg('${rId}')">
         <span class="reply-ref-accent"></span>
-        <span class="reply-ref-label">↪ ${rSndr}</span>
-        <span class="reply-text">${rText}${(data.replyingTo.content || "").length > 80 ? "…" : ""}</span>
+        <div class="reply-ref-meta">
+          <span class="reply-ref-label">↪ ${rSndr}</span>
+          <span class="reply-text">${rText}${(data.replyingTo.content || "").length > 80 ? "…" : ""}</span>
+        </div>
       </div>`;
   }
 
@@ -1296,10 +1310,11 @@ function renderMessage(msgId, data, isGroupStart, msgIndex = 0) {
       ${deleteBtn}
     </div>`;
   UI.msgContainer().appendChild(wrap);
-  // highlight mention if message mentions current user
+  // highlight mention or replies to current user
   try {
-    if (data.content && new RegExp(`@${AppState.currentUser}\b`, 'i').test(data.content)) wrap.classList.add('mention-me');
+    if (data.content && new RegExp(`@${AppState.currentUser}\\b`, 'i').test(data.content)) wrap.classList.add('mention-me');
   } catch (e) { }
+  if (data.replyingTo && data.replyingTo.sender === AppState.currentUser) wrap.classList.add('reply-to-me');
 }
 
 function appendOrRerenderMessage(id) {
@@ -1355,8 +1370,10 @@ function renderMessageInto(wrap, data, isGroupStart) {
     replyHTML = `
       <div class="reply-ref-bar" onclick="scrollToMsg('${rId}')">
         <span class="reply-ref-accent"></span>
-        <span class="reply-ref-label">↪ ${rSndr}</span>
-        <span class="reply-text">${rText}${(data.replyingTo.content || "").length > 80 ? "…" : ""}</span>
+        <div class="reply-ref-meta">
+          <span class="reply-ref-label">↪ ${rSndr}</span>
+          <span class="reply-text">${rText}${(data.replyingTo.content || "").length > 80 ? "…" : ""}</span>
+        </div>
       </div>`;
   }
   let bodyContent = linkify(escHtml(data.content || ""));
@@ -1401,6 +1418,8 @@ function renderMessageInto(wrap, data, isGroupStart) {
       </div>
       ${deleteBtn}
     </div>`;
+  if (data.content && new RegExp(`@${AppState.currentUser}\\b`, 'i').test(data.content)) wrap.classList.add('mention-me');
+  if (data.replyingTo && data.replyingTo.sender === AppState.currentUser) wrap.classList.add('reply-to-me');
 }
 
 function scrollToBottom() {
