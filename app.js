@@ -73,6 +73,21 @@ const AppState = {
   userProfiles: {},
 };
 
+// Mention autocomplete state
+let mentionAutocomplete = {
+  active: false,
+  type: null, // 'mention' or 'command'
+  items: [],
+  index: -1,
+  range: { start: 0, end: 0 },
+};
+
+const SLASH_COMMANDS = [
+  { key: '/nick', label: 'Change your display name' },
+  { key: '/dnd', label: '/dnd on|off [@user]' },
+  { key: '/push', label: 'Send push to all users' },
+];
+
 // User settings persisted to localStorage
 let AppSettings = {
   desktopNotifications: true,
@@ -148,6 +163,7 @@ const UI = {
   loginErr: () => $("login-err"),
   msgContainer: () => $("message-container"),
   consoleInput: () => $("console-input"),
+  mentionSuggestions: () => $("mention-suggestions"),
   chatTitle: () => $("chat-title"),
   chatTopic: () => $("chat-topic"),
   myName: () => $("my-name-display"),
@@ -790,6 +806,14 @@ function connectSocket() {
   AppState.socket.on("message:new", ({ guildId, channelId, message }) => {
     if (AppState.view !== "guild") return;
     if (guildId !== AppState.activeGuildId || channelId !== AppState.activeChannelId) return;
+    if (message?.sender) {
+      updateUserProfile(message.sender, {
+        displayName: message.senderDisplayName,
+        avatar: message.senderAvatar,
+        pronouns: message.senderPronouns,
+        bio: message.senderBio,
+      });
+    }
     AppState.roomMessages.push(message);
     appendOrRerenderMessage(message.id);
     scrollToBottom();
@@ -817,6 +841,14 @@ function connectSocket() {
 
   AppState.socket.on("message:replace", ({ guildId, channelId, message }) => {
     if (guildId !== AppState.activeGuildId || channelId !== AppState.activeChannelId) return;
+    if (message?.sender) {
+      updateUserProfile(message.sender, {
+        displayName: message.senderDisplayName,
+        avatar: message.senderAvatar,
+        pronouns: message.senderPronouns,
+        bio: message.senderBio,
+      });
+    }
     const i = AppState.roomMessages.findIndex(m => m.id === message.id);
     if (i >= 0) AppState.roomMessages[i] = message;
     replaceMessageNode(message);
@@ -830,6 +862,14 @@ function connectSocket() {
 
   AppState.socket.on("dm:message", ({ dmKey, message }) => {
     if (AppState.view !== "dm" || dmKey !== AppState.activeDmKey) return;
+    if (message?.sender) {
+      updateUserProfile(message.sender, {
+        displayName: message.senderDisplayName,
+        avatar: message.senderAvatar,
+        pronouns: message.senderPronouns,
+        bio: message.senderBio,
+      });
+    }
     AppState.roomMessages.push(message);
     appendOrRerenderMessage(message.id);
     scrollToBottom();
@@ -837,6 +877,14 @@ function connectSocket() {
 
   AppState.socket.on("dm:messageReplace", ({ dmKey, message }) => {
     if (dmKey !== AppState.activeDmKey) return;
+    if (message?.sender) {
+      updateUserProfile(message.sender, {
+        displayName: message.senderDisplayName,
+        avatar: message.senderAvatar,
+        pronouns: message.senderPronouns,
+        bio: message.senderBio,
+      });
+    }
     const i = AppState.roomMessages.findIndex(m => m.id === message.id);
     if (i >= 0) AppState.roomMessages[i] = message;
     replaceMessageNode(message);
@@ -1007,6 +1055,16 @@ function selectGuildChannel(guildId, channelId) {
       if (idx >= 0) AppState.guilds[idx] = res.guild;
     }
     AppState.roomMessages = res.messages || [];
+    for (const message of AppState.roomMessages) {
+      if (message?.sender) {
+        updateUserProfile(message.sender, {
+          displayName: message.senderDisplayName,
+          avatar: message.senderAvatar,
+          pronouns: message.senderPronouns,
+          bio: message.senderBio,
+        });
+      }
+    }
     rerenderAllMessages();
     updateSidebarManageUi();
     // clear unread badge when user opens a channel
@@ -1045,6 +1103,16 @@ function openDm(peer) {
     if (!res?.ok) return showToast("Could not open DM.");
     AppState.activeDmKey = res.dmKey;
     AppState.roomMessages = res.messages || [];
+    for (const message of AppState.roomMessages) {
+      if (message?.sender) {
+        updateUserProfile(message.sender, {
+          displayName: message.senderDisplayName,
+          avatar: message.senderAvatar,
+          pronouns: message.senderPronouns,
+          bio: message.senderBio,
+        });
+      }
+    }
     rerenderAllMessages();
     // clear unread badge when opening DM
     updateUnreadBadge(0);
@@ -1355,12 +1423,35 @@ document.addEventListener("DOMContentLoaded", () => {
   const input = $("console-input");
   if (input) {
     input.addEventListener("keydown", e => {
+      if (mentionAutocomplete.active) {
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+          e.preventDefault();
+          moveMentionSelection(e.key === "ArrowDown" ? 1 : -1);
+          return;
+        }
+        if (e.key === "Enter" || e.key === "Tab") {
+          if (commitMentionSelection()) {
+            e.preventDefault();
+            return;
+          }
+        }
+        if (e.key === "Escape") {
+          hideMentionSuggestions();
+        }
+      }
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         sendOrCommitEdit();
       }
     });
-    input.addEventListener("input", handleTypingInput);
+    input.addEventListener("input", event => {
+      handleTypingInput();
+      updateAutocompleteSuggestions();
+    });
+    UI.mentionSuggestions()?.addEventListener('mousedown', e => {
+      e.preventDefault();
+    });
+    UI.mentionSuggestions()?.addEventListener('click', onMentionItemClick);
   }
   $("menu-reply")?.addEventListener("click", () => {
     if (!activeMsgId || !activeMsgData) return;
@@ -1399,7 +1490,6 @@ function initCommandPalette() {
     cmdPaletteEl.id = 'cmd-palette';
     cmdPaletteEl.className = 'cmd-palette';
     document.body.appendChild(cmdPaletteEl);
-    UI.consoleInput()?.addEventListener('input', onConsoleInput);
     UI.consoleInput()?.addEventListener('keydown', e => {
       if (e.key === 'Escape') hideCommandPalette();
     });
@@ -1437,6 +1527,158 @@ function renderCmdPalette(list) {
 }
 
 function hideCommandPalette() { if (cmdPaletteEl) cmdPaletteEl.classList.remove('visible'); }
+
+function getMentionCandidates(query) {
+  const q = String(query || '').toLowerCase();
+  const seen = new Set();
+  const candidates = [];
+  const add = (username, displayName) => {
+    const key = String(username || '').toLowerCase();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    if (q && !key.startsWith(q) && !String(displayName || '').toLowerCase().startsWith(q)) return;
+    candidates.push({ type: 'mention', key, label: displayName || key });
+  };
+  for (const profile of Object.values(AppState.userProfiles || {})) {
+    add(profile.username, profile.displayName || profile.username);
+  }
+  if (AppState.currentUser) {
+    add(AppState.currentUser, AppProfile.displayName || AppState.currentUser);
+  }
+  return candidates.sort((a, b) => a.key.localeCompare(b.key));
+}
+
+function findMentionContext(text, cursor) {
+  const before = String(text || '').slice(0, cursor);
+  const match = /(?:^|\s)@([a-z0-9._-]{0,48})$/i.exec(before);
+  if (!match) return null;
+  return {
+    start: cursor - match[1].length - 1,
+    end: cursor,
+    query: match[1],
+  };
+}
+
+function renderMentionSuggestions() {
+  const box = UI.mentionSuggestions();
+  if (!box) return;
+  if (!mentionAutocomplete.active || !mentionAutocomplete.items.length) {
+    hideMentionSuggestions();
+    return;
+  }
+  box.innerHTML = mentionAutocomplete.items.map((item, idx) => `
+      <div class="mention-item${idx === mentionAutocomplete.index ? ' selected' : ''}" data-index="${idx}" role="option">
+        <span class="mention-display">${escHtml(item.label)}</span>
+        <span class="mention-handle">${item.type === 'command' ? escHtml(item.key) : '@' + escHtml(item.key)}</span>
+      </div>
+    `).join('');
+  box.classList.add('visible');
+}
+
+function hideMentionSuggestions() {
+  mentionAutocomplete.active = false;
+  mentionAutocomplete.items = [];
+  mentionAutocomplete.index = -1;
+  mentionAutocomplete.range = { start: 0, end: 0 };
+  const box = UI.mentionSuggestions();
+  if (box) {
+    box.classList.remove('visible');
+    box.innerHTML = '';
+  }
+}
+
+function findCommandContext(text, cursor) {
+  const before = String(text || '').slice(0, cursor);
+  const match = /^\/([a-z0-9._-]{0,48})?$/.exec(before.toLowerCase());
+  if (!match) return null;
+  return {
+    start: 0,
+    end: cursor,
+    query: match[1] || '',
+  };
+}
+
+function getSlashCommandCandidates(query) {
+  const q = String(query || '').toLowerCase();
+  return SLASH_COMMANDS
+    .filter(cmd => !q || cmd.key.slice(1).startsWith(q))
+    .map(cmd => ({ type: 'command', key: cmd.key, label: cmd.label }));
+}
+
+function updateAutocompleteSuggestions() {
+  const input = UI.consoleInput();
+  if (!input) return;
+  const cursor = input.selectionStart || 0;
+  const commandContext = findCommandContext(input.value, cursor);
+  if (commandContext) {
+    const items = getSlashCommandCandidates(commandContext.query);
+    if (items.length) {
+      mentionAutocomplete.active = true;
+      mentionAutocomplete.type = 'command';
+      mentionAutocomplete.items = items;
+      mentionAutocomplete.index = 0;
+      mentionAutocomplete.range = { start: commandContext.start, end: commandContext.end };
+      renderMentionSuggestions();
+      return;
+    }
+  }
+  const mentionContext = findMentionContext(input.value, cursor);
+  if (!mentionContext) {
+    hideMentionSuggestions();
+    return;
+  }
+  const items = getMentionCandidates(mentionContext.query);
+  if (!items.length) {
+    hideMentionSuggestions();
+    return;
+  }
+  mentionAutocomplete.active = true;
+  mentionAutocomplete.type = 'mention';
+  mentionAutocomplete.items = items;
+  mentionAutocomplete.index = 0;
+  mentionAutocomplete.range = { start: mentionContext.start, end: mentionContext.end };
+  renderMentionSuggestions();
+}
+
+function moveMentionSelection(delta) {
+  if (!mentionAutocomplete.active || !mentionAutocomplete.items.length) return;
+  const total = mentionAutocomplete.items.length;
+  mentionAutocomplete.index = ((mentionAutocomplete.index + delta) % total + total) % total;
+  renderMentionSuggestions();
+}
+
+function commitMentionSelection() {
+  if (!mentionAutocomplete.active || !mentionAutocomplete.items.length) return false;
+  const input = UI.consoleInput();
+  if (!input) return false;
+  const selected = mentionAutocomplete.items[Math.max(0, Math.min(mentionAutocomplete.index, mentionAutocomplete.items.length - 1))];
+  if (!selected) return false;
+  const text = input.value;
+  const before = text.slice(0, mentionAutocomplete.range.start);
+  const after = text.slice(mentionAutocomplete.range.end);
+  let completed;
+  if (selected.type === 'command') {
+    completed = selected.key + ' ';
+  } else {
+    completed = `@${selected.key}`;
+    const needsSpace = after.length === 0 || /^\s/.test(after);
+    completed += needsSpace ? ' ' : '';
+  }
+  input.value = before + completed + after;
+  const cursorPos = before.length + completed.length;
+  input.setSelectionRange(cursorPos, cursorPos);
+  hideMentionSuggestions();
+  input.focus();
+  return true;
+}
+
+function onMentionItemClick(event) {
+  const target = event.target.closest('.mention-item');
+  if (!target) return;
+  const index = Number(target.dataset.index || 0);
+  mentionAutocomplete.index = Number.isFinite(index) ? index : 0;
+  commitMentionSelection();
+}
 
 function openSettings() {
   const modal = UI.genericModal();

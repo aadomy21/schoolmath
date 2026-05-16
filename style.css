@@ -1467,6 +1467,54 @@ body {
   min-width: 0;
 }
 
+#input-wrap {
+  position: relative;
+}
+
+.mention-suggestions {
+  display: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  margin-top: 4px;
+  background: var(--bg-mid);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  max-height: 220px;
+  overflow-y: auto;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.26);
+  z-index: 20;
+}
+
+.mention-suggestions.visible {
+  display: block;
+}
+
+.mention-item {
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  cursor: pointer;
+  color: var(--text-norm);
+  font-size: 14px;
+}
+
+.mention-item:hover,
+.mention-item.selected {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.mention-display {
+  font-weight: 600;
+}
+
+.mention-handle {
+  color: var(--text-muted);
+}
+
 #console-input::placeholder {
   color: #6d6f78;
 }
