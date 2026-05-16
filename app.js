@@ -36,6 +36,7 @@ function isFirebaseBackend() {
 
 const ADMIN = "aadomy21";
 const MAX_REACTION_TYPES = 12;
+const REPLY_PREVIEW_MAX_CHARS = 90;
 const TYPING_TIMEOUT_MS = 3200;
 
 /** Mirrors server permission bits */
@@ -50,6 +51,7 @@ const PERM = {
 
 const AppState = {
   currentUser: null,
+  lastLoginUser: null,
   backendMode: null,
   currentChatPath: "",
   socket: null,
@@ -411,13 +413,35 @@ function updateInputPlaceholder() {
 }
 
 // --- Auth ---
+function getSavedLoginUser() {
+  try {
+    return localStorage.getItem('last_login_user') || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function saveLoginUser(username) {
+  try {
+    localStorage.setItem('last_login_user', String(username || '').toLowerCase());
+  } catch (e) { }
+}
+
+function clearSavedLoginUser() {
+  try {
+    localStorage.removeItem('last_login_user');
+  } catch (e) { }
+}
+
 window.onload = () => {
+  AppState.lastLoginUser = getSavedLoginUser();
   // Show the math worksheet first. Login prompt appears after unlocking the hidden hotspot.
   // Do not auto-open login overlay here.
   const unlock = document.getElementById('math-unlock');
   if (unlock) {
     unlock.addEventListener('click', () => {
       UI.loginOverlay().classList.add('active');
+      if (AppState.lastLoginUser) UI.loginEmail().value = AppState.lastLoginUser;
       UI.loginEmail().focus();
     });
   } else {
@@ -436,7 +460,19 @@ window.onload = () => {
 window.addEventListener('keydown', (e) => {
   try {
     if (e.ctrlKey && String(e.key || '').toLowerCase() === 'l') {
+      if (AppState.currentUser) return;
+      if (isFirebaseBackend() && auth.currentUser) {
+        AppState.currentUser = auth.currentUser.email.split("@")[0].toLowerCase();
+        revealApp();
+        return;
+      }
+      if (AppState.lastLoginUser && !isFirebaseBackend()) {
+        AppState.currentUser = AppState.lastLoginUser;
+        revealApp();
+        return;
+      }
       UI.loginOverlay().classList.add('active');
+      if (AppState.lastLoginUser) UI.loginEmail().value = AppState.lastLoginUser;
       UI.loginEmail().focus();
     }
   } catch (err) { }
@@ -450,6 +486,8 @@ function handleLogin() {
   if (backend === 'socket') {
     if (!email) { showLoginError('Enter your username'); return; }
     AppState.currentUser = email.split('@')[0].toLowerCase();
+    saveLoginUser(AppState.currentUser);
+    AppState.lastLoginUser = AppState.currentUser;
     UI.loginOverlay().classList.remove('active');
     revealApp();
     return;
@@ -466,6 +504,8 @@ function handleLogin() {
   auth.signInWithEmailAndPassword(email, pass)
     .then(() => {
       AppState.currentUser = email.split("@")[0].toLowerCase();
+      saveLoginUser(AppState.currentUser);
+      AppState.lastLoginUser = AppState.currentUser;
       UI.loginOverlay().classList.remove("active");
       revealApp();
     })
@@ -477,6 +517,31 @@ function handleLogin() {
       btn.disabled = false;
       btn.textContent = "Log In";
     });
+}
+
+function performLogout() {
+  if (AppState.socket && typeof AppState.socket.disconnect === 'function') {
+    AppState.socket.disconnect();
+  }
+  if (isFirebaseBackend()) {
+    auth.signOut().catch(() => { });
+  }
+  AppState.currentUser = null;
+  AppState.activeGuildId = null;
+  AppState.activeChannelId = null;
+  AppState.activeDmPeer = null;
+  AppState.activeDmKey = null;
+  clearSavedLoginUser();
+  AppState.lastLoginUser = null;
+  UI.appUI().classList.remove('visible');
+  UI.loginOverlay().classList.remove('active');
+  UI.mathCover().style.display = '';
+  UI.statusText().textContent = 'Offline';
+  UI.statusText().style.color = '';
+  UI.myName().textContent = 'User';
+  const av = UI.userAvatar();
+  av.style.backgroundImage = '';
+  av.textContent = '?';
 }
 
 function showLoginError(msg) {
@@ -1244,14 +1309,16 @@ function renderMessage(msgId, data, isGroupStart, msgIndex = 0) {
   let replyHTML = "";
   if (data.replyingTo && data.replyingTo.id) {
     const rSndr = escHtml(data.replyingTo.sender || "");
-    const rText = escHtml((data.replyingTo.content || "").substring(0, 80));
+    const preview = String(data.replyingTo.content || "").trim();
+    const trimmed = preview.length > REPLY_PREVIEW_MAX_CHARS ? preview.slice(0, REPLY_PREVIEW_MAX_CHARS) + "…" : preview;
+    const rText = escHtml(trimmed);
     const rId = escAttr(data.replyingTo.id);
     replyHTML = `
       <div class="reply-ref-bar" onclick="scrollToMsg('${rId}')">
         <span class="reply-ref-accent"></span>
         <div class="reply-ref-meta">
           <span class="reply-ref-label">↪ ${rSndr}</span>
-          <span class="reply-text">${rText}${(data.replyingTo.content || "").length > 80 ? "…" : ""}</span>
+          <span class="reply-text">${rText}</span>
         </div>
       </div>`;
   }
@@ -1284,7 +1351,6 @@ function renderMessage(msgId, data, isGroupStart, msgIndex = 0) {
     : "";
 
   wrap.innerHTML = `
-    ${replyHTML}
     <div class="msg-avatar-col">
       ${isGroupStart
       ? `<div class="msg-avatar${isAdmin ? " admin-color" : ""}" title="View profile" onclick="openUserProfile('${escAttr(data.sender)}')" style="${avatarUrl ? `background-image:url('${escAttr(avatarUrl)}');` : ''}">${!avatarUrl ? escHtml((displayName || data.sender || '?')[0]?.toUpperCase() || '?') : ''}</div>`
@@ -1298,6 +1364,7 @@ function renderMessage(msgId, data, isGroupStart, msgIndex = 0) {
             <span class="msg-time" title="${escAttr(fullTs)}">${timeStr}</span>
           </div>`
       : ""}
+      ${replyHTML}
       <div class="msg-content">${bodyContent}</div>
       ${attachHTML}
       ${reactionsHTML}
@@ -1365,14 +1432,16 @@ function renderMessageInto(wrap, data, isGroupStart) {
   let replyHTML = "";
   if (data.replyingTo && data.replyingTo.id) {
     const rSndr = escHtml(data.replyingTo.sender || "");
-    const rText = escHtml((data.replyingTo.content || "").substring(0, 80));
+    const preview = String(data.replyingTo.content || "").trim();
+    const trimmed = preview.length > REPLY_PREVIEW_MAX_CHARS ? preview.slice(0, REPLY_PREVIEW_MAX_CHARS) + "…" : preview;
+    const rText = escHtml(trimmed);
     const rId = escAttr(data.replyingTo.id);
     replyHTML = `
       <div class="reply-ref-bar" onclick="scrollToMsg('${rId}')">
         <span class="reply-ref-accent"></span>
         <div class="reply-ref-meta">
           <span class="reply-ref-label">↪ ${rSndr}</span>
-          <span class="reply-text">${rText}${(data.replyingTo.content || "").length > 80 ? "…" : ""}</span>
+          <span class="reply-text">${rText}</span>
         </div>
       </div>`;
   }
@@ -1393,7 +1462,6 @@ function renderMessageInto(wrap, data, isGroupStart) {
     ? `<div class="action-btn delete" title="Delete" onclick="deleteMessage('${escAttr(msgId)}')">🗑</div>`
     : "";
   wrap.innerHTML = `
-    ${replyHTML}
     <div class="msg-avatar-col">
       ${isGroupStart
       ? `<div class="msg-avatar${isAdmin ? " admin-color" : ""}" title="View profile" onclick="openUserProfile('${escAttr(data.sender)}')" style="${avatarUrl ? `background-image:url('${escAttr(avatarUrl)}');` : ''}">${!avatarUrl ? escHtml((displayName || data.sender || '?')[0]?.toUpperCase() || '?') : ''}</div>`
@@ -1407,6 +1475,7 @@ function renderMessageInto(wrap, data, isGroupStart) {
             <span class="msg-time" title="${escAttr(fullTs)}">${timeStr}</span>
           </div>`
       : ""}
+      ${replyHTML}
       <div class="msg-content">${bodyContent}</div>
       ${attachHTML}
       ${reactionsHTML}
@@ -1555,11 +1624,17 @@ function getMentionCandidates(query) {
     const key = String(username || '').toLowerCase();
     if (!key || seen.has(key)) return;
     seen.add(key);
-    if (q && !key.startsWith(q) && !String(displayName || '').toLowerCase().startsWith(q)) return;
-    candidates.push({ type: 'mention', key, label: displayName || key });
+    const labelText = String(displayName || key);
+    if (q && !key.startsWith(q) && !labelText.toLowerCase().startsWith(q)) return;
+    candidates.push({ type: 'mention', key, label: labelText });
   };
   for (const profile of Object.values(AppState.userProfiles || {})) {
     add(profile.username, profile.displayName || profile.username);
+  }
+  for (const guild of AppState.guilds || []) {
+    for (const member of guild.memberIds || []) {
+      add(member, getUserProfile(member).displayName || member);
+    }
   }
   if (AppState.currentUser) {
     add(AppState.currentUser, AppProfile.displayName || AppState.currentUser);
@@ -1716,11 +1791,16 @@ function openSettings() {
       <label><input type="checkbox" id="s-dnd" ${AppProfile.dnd ? 'checked' : ''}/> Do Not Disturb (no notifications)</label>
       <label><input type="checkbox" id="s-push" ${AppSettings.pushEnabled ? 'checked' : ''}/> Enable push notifications (requires setup)</label>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px;">
+        <button type="button" id="settings-logout" class="btn-modal">Logout</button>
         <button type="button" id="settings-cancel" class="btn-modal">Cancel</button>
         <button type="button" id="settings-save" class="btn-modal btn-modal-primary">Save</button>
       </div>
     </div>`;
   modal.classList.remove('hidden');
+  body.querySelector('#settings-logout').onclick = () => {
+    closeGenericModal();
+    performLogout();
+  };
   body.querySelector('#settings-cancel').onclick = () => closeGenericModal();
   body.querySelector('#settings-save').onclick = () => {
     const display = String(body.querySelector('#s-display').value || '').trim();
@@ -2216,14 +2296,16 @@ function renderMembersAndDms(onlineList, firebaseAllNames) {
   for (const name of names) {
     const online = onlineSet.has(name);
     if (online) onlineCount++;
+    const profile = getUserProfile(name);
+    const displayName = profile.displayName || name;
     if (name !== AppState.currentUser) {
       const item = document.createElement("div");
       item.className = "dm-item";
       item.id = `dm-item-${name}`;
       if (!online) item.style.opacity = ".5";
       item.innerHTML = `
-        <div class="dm-avatar" style="${name === ADMIN ? "background:#e91e63;" : ""}">${name[0].toUpperCase()}</div>
-        <span>${escHtml(name)}</span>`;
+        <div class="dm-avatar" style="${name === ADMIN ? "background:#e91e63;" : ""}">${escHtml((displayName || name)[0]?.toUpperCase() || '')}</div>
+        <span>${escHtml(displayName)}</span>`;
       item.onclick = () => openDm(name);
       UI.dmList().appendChild(item);
     }
@@ -2231,8 +2313,8 @@ function renderMembersAndDms(onlineList, firebaseAllNames) {
     mItem.className = "member-item";
     if (!online) mItem.style.opacity = ".45";
     mItem.innerHTML = `
-      <div class="member-av${name === ADMIN ? " admin-color" : ""}">${name[0].toUpperCase()}</div>
-      <span class="member-name${name === ADMIN ? " admin-name" : ""}">${escHtml(name)}${name === ADMIN ? ' <span class="role-badge admin">ADMIN</span>' : ""}</span>`;
+      <div class="member-av${name === ADMIN ? " admin-color" : ""}">${escHtml((displayName || name)[0]?.toUpperCase() || '')}</div>
+      <span class="member-name${name === ADMIN ? " admin-name" : ""}">${escHtml(displayName)}${name === ADMIN ? ' <span class="role-badge admin">ADMIN</span>' : ""}</span>`;
     UI.membersList().appendChild(mItem);
   }
   UI.onlineCount().textContent = onlineCount;

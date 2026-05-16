@@ -1485,7 +1485,7 @@ body {
   max-height: 220px;
   overflow-y: auto;
   box-shadow: 0 14px 40px rgba(0, 0, 0, 0.26);
-  z-index: 20;
+  z-index: 9999;
 }
 
 .mention-suggestions.visible {
@@ -2051,6 +2051,8 @@ aside,
   border: 1px solid var(--divider);
   border-radius: 14px;
   padding: 10px 12px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .reply-ref-bar:hover {
