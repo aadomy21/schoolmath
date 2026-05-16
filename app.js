@@ -72,6 +72,43 @@ const AppState = {
   visibleMessageEnd: 0,
 };
 
+// User settings persisted to localStorage
+let AppSettings = {
+  desktopNotifications: true,
+  sound: true,
+  unreadBadge: true,
+  pushEnabled: false,
+};
+
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem('app_settings');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      AppSettings = { ...AppSettings, ...parsed };
+    }
+  } catch (e) {}
+  applySettings();
+}
+
+function saveSettings() {
+  try {
+    localStorage.setItem('app_settings', JSON.stringify(AppSettings));
+    applySettings();
+    showToast('Settings saved');
+  } catch (e) { showToast('Could not save settings'); }
+}
+
+function applySettings() {
+  // Desktop notifications: if enabled, ask permission if not decided
+  if (AppSettings.desktopNotifications && 'Notification' in window && Notification.permission === 'default') {
+    try { Notification.requestPermission().catch(() => {}); } catch (e) {}
+  }
+  // Sound: no-op here, playPing checks AppSettings.sound
+  // Unread badge: hide if disabled
+  if (!AppSettings.unreadBadge) updateUnreadBadge(0);
+}
+
 const FIREBASE_KEY_ESCAPES = {
   ".": "%2E",
   "#": "%23",
@@ -299,6 +336,7 @@ function revealApp() {
 }
 
 function updateUnreadBadge(count) {
+  if (!AppSettings.unreadBadge) return;
   const b = document.getElementById('unread-badge');
   if (!b) return;
   const n = Number(count) || 0;
@@ -512,6 +550,7 @@ function requestNotificationPermission() {
 }
 
 function playPing() {
+  if (!AppSettings.sound) return;
   // Prefer a short file /ping.mp3 if present, otherwise fall back to WebAudio oscillator
   if (window.__pingAudio && typeof window.__pingAudio.play === 'function') {
     const a = window.__pingAudio;
@@ -541,6 +580,7 @@ function playOscillator() {
 }
 
 function showDesktopNotification(title, body, icon, data) {
+  if (!AppSettings.desktopNotifications) return false;
   if (!('Notification' in window)) return false;
   if (Notification.permission !== 'granted') return false;
   try {
@@ -1148,7 +1188,41 @@ document.addEventListener("DOMContentLoaded", () => {
   UI.genericModal()?.addEventListener("click", e => {
     if (e.target === UI.genericModal()) closeGenericModal();
   });
+  // Load user settings and wire settings button
+  loadSettings();
+  $("btn-settings")?.addEventListener("click", openSettings);
 });
+
+function openSettings() {
+  const modal = UI.genericModal();
+  UI.genericModalTitle().textContent = "Settings";
+  const body = UI.genericModalBody();
+  body.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <label><input type="checkbox" id="s-desktop" ${AppSettings.desktopNotifications ? 'checked' : ''}/> Enable desktop notifications</label>
+      <label><input type="checkbox" id="s-sound" ${AppSettings.sound ? 'checked' : ''}/> Play sound on new messages</label>
+      <label><input type="checkbox" id="s-unread" ${AppSettings.unreadBadge ? 'checked' : ''}/> Show unread badge</label>
+      <label><input type="checkbox" id="s-push" ${AppSettings.pushEnabled ? 'checked' : ''}/> Enable push notifications (requires setup)</label>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px;">
+        <button type="button" id="settings-cancel" class="btn-modal">Cancel</button>
+        <button type="button" id="settings-save" class="btn-modal btn-modal-primary">Save</button>
+      </div>
+    </div>`;
+  modal.classList.remove('hidden');
+  body.querySelector('#settings-cancel').onclick = () => closeGenericModal();
+  body.querySelector('#settings-save').onclick = () => {
+    const ds = !!body.querySelector('#s-desktop').checked;
+    const ss = !!body.querySelector('#s-sound').checked;
+    const ub = !!body.querySelector('#s-unread').checked;
+    const ps = !!body.querySelector('#s-push').checked;
+    AppSettings.desktopNotifications = ds;
+    AppSettings.sound = ss;
+    AppSettings.unreadBadge = ub;
+    AppSettings.pushEnabled = ps;
+    saveSettings();
+    closeGenericModal();
+  };
+}
 
 function sendOrCommitEdit() {
   if (AppState.editingMessageId) return commitEdit();
