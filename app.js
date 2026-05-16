@@ -519,12 +519,12 @@ function playPing() {
       a.currentTime = 0;
       a.play().catch(() => {
         // fall back to oscillator
-        try { playOscillator(); } catch (e) {}
+        try { playOscillator(); } catch (e) { }
       });
       return;
-    } catch (e) {}
+    } catch (e) { }
   }
-  try { playOscillator(); } catch (e) {}
+  try { playOscillator(); } catch (e) { }
 }
 
 function playOscillator() {
