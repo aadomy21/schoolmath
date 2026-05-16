@@ -346,15 +346,22 @@ io.on('connection', socket => {
 
   socket.on('user:update', (payload, cb) => {
     if (!user) return cb?.({ ok: false });
-    const { displayName, avatar, dnd } = payload || {};
+    const { displayName, avatar, dnd, pronouns, bio } = payload || {};
     // update member metadata in all guilds where user is a member
     for (const gid of Object.keys(store.guilds)) {
       const g = store.guilds[gid];
       if (g.members[user]) {
-        g.members[user] = { ...(g.members[user] || {}), displayName: displayName || g.members[user].displayName || user, avatar: avatar !== undefined ? avatar : g.members[user].avatar, dnd: !!dnd };
+        g.members[user] = {
+          ...(g.members[user] || {}),
+          displayName: displayName || g.members[user].displayName || user,
+          avatar: avatar !== undefined ? avatar : g.members[user].avatar,
+          pronouns: pronouns !== undefined ? pronouns : g.members[user].pronouns,
+          bio: bio !== undefined ? bio : g.members[user].bio,
+          dnd: !!dnd,
+        };
       }
     }
-    io.emit('user:updated', { username: user, displayName, avatar, dnd });
+    io.emit('user:updated', { username: user, displayName, avatar, dnd, pronouns, bio });
     // persist change
     try { saveData(); } catch (e) { }
     cb?.({ ok: true });
@@ -575,7 +582,7 @@ io.on('connection', socket => {
 
   socket.on('message:send', (payload, cb) => {
     if (!user) return cb?.({ ok: false });
-    const { guildId, channelId, content, replyingTo, attachments } = payload || {};
+    const { guildId, channelId, content, replyingTo, attachments, senderDisplayName, senderAvatar, senderPronouns, senderBio } = payload || {};
     const guild = store.guilds[guildId];
     if (!guild || !guild.members[user]) return cb?.({ ok: false });
     const ch = guild.channels.find(c => c.id === channelId);
@@ -584,6 +591,10 @@ io.on('connection', socket => {
     const msg = {
       id: genId(),
       sender: user,
+      senderDisplayName: senderDisplayName || undefined,
+      senderAvatar: senderAvatar || undefined,
+      senderPronouns: senderPronouns || undefined,
+      senderBio: senderBio || undefined,
       content: String(content || '').slice(0, 4000),
       timestamp: Date.now(),
       editedAt: null,
@@ -645,6 +656,10 @@ io.on('connection', socket => {
     const msg = {
       id: genId(),
       sender: user,
+      senderDisplayName: payload?.senderDisplayName || undefined,
+      senderAvatar: payload?.senderAvatar || undefined,
+      senderPronouns: payload?.senderPronouns || undefined,
+      senderBio: payload?.senderBio || undefined,
       content: String(payload?.content || '').slice(0, 4000),
       timestamp: Date.now(),
       editedAt: null,

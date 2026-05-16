@@ -70,6 +70,7 @@ const AppState = {
   virtualizationBuffer: 10,
   visibleMessageStart: 0,
   visibleMessageEnd: 0,
+  userProfiles: {},
 };
 
 // User settings persisted to localStorage
@@ -190,8 +191,61 @@ let toastTimer = null;
 let AppProfile = {
   displayName: null,
   avatar: null, // data URL
+  bio: '',
+  pronouns: '',
   dnd: false,
 };
+
+function getUserProfile(username) {
+  const key = String(username || '').toLowerCase();
+  const base = AppState.userProfiles[key] || {};
+  return {
+    username: key || '',
+    displayName: base.displayName || username || '',
+    avatar: base.avatar || null,
+    pronouns: base.pronouns || '',
+    bio: base.bio || '',
+  };
+}
+
+function updateUserProfile(username, profile = {}) {
+  const key = String(username || '').toLowerCase();
+  if (!key) return;
+  const cleanProfile = {};
+  for (const [k, v] of Object.entries(profile)) {
+    if (v !== undefined) cleanProfile[k] = v;
+  }
+  AppState.userProfiles[key] = {
+    ...(AppState.userProfiles[key] || { username: key }),
+    ...cleanProfile,
+    username: key,
+  };
+}
+
+function openUserProfile(username) {
+  if (!username) return;
+  const profile = getUserProfile(username);
+  const modal = UI.genericModal();
+  UI.genericModalTitle().textContent = 'User profile';
+  const body = UI.genericModalBody();
+  body.innerHTML = `
+    <div class="profile-card">
+      <div class="profile-header">
+        <div class="profile-avatar" style="${profile.avatar ? `background-image:url('${escAttr(profile.avatar)}');` : ''}">${!profile.avatar ? escHtml((profile.displayName || profile.username || '?')[0]?.toUpperCase() || '?') : ''}</div>
+        <div class="profile-meta">
+          <div class="profile-display-name">${escHtml(profile.displayName || profile.username)}</div>
+          <div class="profile-username">@${escHtml(profile.username)}</div>
+          <div class="profile-pronouns">${escHtml(profile.pronouns || 'Pronouns not set')}</div>
+        </div>
+      </div>
+      <div class="profile-bio">${escHtml(profile.bio || 'No bio provided.')}</div>
+      <div class="profile-actions">
+        ${profile.username === AppState.currentUser ? '<div class="profile-self-note">This is you.</div>' : `<button type="button" class="btn-modal btn-modal-primary" onclick="openDm('${escAttr(profile.username)}'); closeGenericModal();">Message</button>`}
+        <button type="button" class="btn-modal" onclick="closeGenericModal()">Close</button>
+      </div>
+    </div>`;
+  modal.classList.remove('hidden');
+}
 
 function loadProfile() {
   try {
@@ -202,14 +256,37 @@ function loadProfile() {
     }
   } catch (e) { }
   applyProfileToUI();
+  if (AppState.currentUser) {
+    updateUserProfile(AppState.currentUser, {
+      displayName: AppProfile.displayName,
+      avatar: AppProfile.avatar,
+      pronouns: AppProfile.pronouns,
+      bio: AppProfile.bio,
+    });
+  }
 }
 
 function saveProfile() {
   try {
     localStorage.setItem('app_profile', JSON.stringify(AppProfile));
+    if (AppState.currentUser) {
+      updateUserProfile(AppState.currentUser, {
+        displayName: AppProfile.displayName,
+        avatar: AppProfile.avatar,
+        pronouns: AppProfile.pronouns,
+        bio: AppProfile.bio,
+      });
+    }
     // inform server
     if (AppState.socket && AppState.socket.connected) {
-      AppState.socket.emit('user:update', { displayName: AppProfile.displayName, avatar: AppProfile.avatar, dnd: AppProfile.dnd }, () => { });
+      AppState.socket.emit('user:update', {
+        username: AppState.currentUser,
+        displayName: AppProfile.displayName,
+        avatar: AppProfile.avatar,
+        pronouns: AppProfile.pronouns,
+        bio: AppProfile.bio,
+        dnd: AppProfile.dnd,
+      }, () => { });
     }
     applyProfileToUI();
   } catch (e) { }
@@ -407,14 +484,8 @@ function revealApp() {
   if (u === ADMIN) av.style.background = "#e91e63";
   // Request notification permission after user login (user gesture)
   requestNotificationPermission();
-  // Preload optional ping audio so playback is allowed after user gesture
-  try {
-    const a = new Audio('/ping.mp3');
-    a.preload = 'auto';
-    a.volume = 0.6;
-    a.addEventListener('error', () => { window.__pingAudio = null; });
-    window.__pingAudio = a;
-  } catch (e) { window.__pingAudio = null; }
+  // Avoid external ping asset missing on some hosts; use the Web Audio fallback instead.
+  window.__pingAudio = null;
   startRealtime();
 }
 
@@ -732,8 +803,16 @@ function connectSocket() {
 
   AppState.socket.on('user:updated', info => {
     if (!info) return;
-    // refresh member lists or show toast
-    if (info.displayName) showToast(`${info.username} is now known as ${info.displayName}`);
+    const user = String(info.username || info.user || '').toLowerCase();
+    if (user) {
+      updateUserProfile(user, {
+        displayName: info.senderDisplayName || info.displayName,
+        avatar: info.avatar,
+        pronouns: info.pronouns,
+        bio: info.bio,
+      });
+    }
+    if (info.displayName && info.username) showToast(`${info.username} is now known as ${info.displayName}`);
   });
 
   AppState.socket.on("message:replace", ({ guildId, channelId, message }) => {
@@ -1054,6 +1133,10 @@ function renderMessage(msgId, data, isGroupStart, msgIndex = 0) {
   wrap.setAttribute("data-content", data.content || "");
   wrap.setAttribute("data-msg-index", msgIndex);
 
+  const profile = getUserProfile(data.sender);
+  const displayName = data.senderDisplayName || data.displayName || profile.displayName || data.sender || "";
+  const avatarUrl = data.senderAvatar || profile.avatar;
+  const showUsernameTag = data.sender && data.sender.toLowerCase() !== displayName.toLowerCase();
   const isAdmin = data.sender === ADMIN;
   const isOwn = data.sender === AppState.currentUser;
   const canDelete = isOwn || (AppState.view === "guild" && activeGuild() && (
@@ -1122,13 +1205,14 @@ function renderMessage(msgId, data, isGroupStart, msgIndex = 0) {
     ${replyHTML}
     <div class="msg-avatar-col">
       ${isGroupStart
-      ? `<div class="msg-avatar${isAdmin ? " admin-color" : ""}" title="${escAttr(data.sender)}">${(data.sender || "?")[0].toUpperCase()}</div>`
+      ? `<div class="msg-avatar${isAdmin ? " admin-color" : ""}" title="View profile" onclick="openUserProfile('${escAttr(data.sender)}')" style="${avatarUrl ? `background-image:url('${escAttr(avatarUrl)}');` : ''}">${!avatarUrl ? escHtml((displayName || data.sender || '?')[0]?.toUpperCase() || '?') : ''}</div>`
       : `<span class="msg-compact-ts">${timeStr}</span>`}
     </div>
     <div class="msg-body">
       ${isGroupStart
       ? `<div class="msg-meta">
-            <span class="msg-sender${isAdmin ? " admin-name" : ""}" title="${escAttr(data.sender)}">${escHtml(data.sender || "")}${isAdmin ? ' <span class="role-badge admin">ADMIN</span>' : ""}</span>
+            <span class="msg-sender${isAdmin ? " admin-name" : ""}" title="View profile" onclick="openUserProfile('${escAttr(data.sender)}')">${escHtml(displayName)}</span>
+            ${showUsernameTag ? `<span class="msg-username">@${escHtml(data.sender)}</span>` : ''}
             <span class="msg-time" title="${escAttr(fullTs)}">${timeStr}</span>
           </div>`
       : ""}
@@ -1171,6 +1255,10 @@ function renderMessageInto(wrap, data, isGroupStart) {
   wrap.setAttribute("data-id", msgId);
   wrap.setAttribute("data-sender", data.sender || "");
   wrap.setAttribute("data-content", data.content || "");
+  const profile = getUserProfile(data.sender);
+  const displayName = data.senderDisplayName || data.displayName || profile.displayName || data.sender || "";
+  const avatarUrl = data.senderAvatar || profile.avatar;
+  const showUsernameTag = data.sender && data.sender.toLowerCase() !== displayName.toLowerCase();
   const isAdmin = data.sender === ADMIN;
   const isOwn = data.sender === AppState.currentUser;
   const canDelete = isOwn || (AppState.view === "guild" && activeGuild() && (
@@ -1223,13 +1311,14 @@ function renderMessageInto(wrap, data, isGroupStart) {
     ${replyHTML}
     <div class="msg-avatar-col">
       ${isGroupStart
-      ? `<div class="msg-avatar${isAdmin ? " admin-color" : ""}" title="${escAttr(data.sender)}">${(data.sender || "?")[0].toUpperCase()}</div>`
+      ? `<div class="msg-avatar${isAdmin ? " admin-color" : ""}" title="View profile" onclick="openUserProfile('${escAttr(data.sender)}')" style="${avatarUrl ? `background-image:url('${escAttr(avatarUrl)}');` : ''}">${!avatarUrl ? escHtml((displayName || data.sender || '?')[0]?.toUpperCase() || '?') : ''}</div>`
       : `<span class="msg-compact-ts">${timeStr}</span>`}
     </div>
     <div class="msg-body">
       ${isGroupStart
       ? `<div class="msg-meta">
-            <span class="msg-sender${isAdmin ? " admin-name" : ""}">${escHtml(data.sender || "")}</span>
+            <span class="msg-sender${isAdmin ? " admin-name" : ""}" title="View profile" onclick="openUserProfile('${escAttr(data.sender)}')">${escHtml(displayName)}</span>
+            ${showUsernameTag ? `<span class="msg-username">@${escHtml(data.sender)}</span>` : ''}
             <span class="msg-time" title="${escAttr(fullTs)}">${timeStr}</span>
           </div>`
       : ""}
@@ -1356,6 +1445,8 @@ function openSettings() {
   body.innerHTML = `
     <div style="display:flex;flex-direction:column;gap:12px;">
       <label>Display name<br><input type="text" id="s-display" value="${escAttr(AppProfile.displayName || '')}" placeholder="Your display name" style="width:100%"></label>
+      <label>Pronouns<br><input type="text" id="s-pronouns" value="${escAttr(AppProfile.pronouns || '')}" placeholder="e.g. they/them" style="width:100%"></label>
+      <label>Bio<br><textarea id="s-bio" placeholder="A short bio" style="width:100%;min-height:70px;resize:vertical;">${escAttr(AppProfile.bio || '')}</textarea></label>
       <label>Profile picture<br><input type="file" id="s-avatar-file" accept="image/*"></label>
       <div id="s-avatar-preview" style="min-height:40px;display:flex;align-items:center;gap:8px;"><img id="s-avatar-img" src="${escAttr(AppProfile.avatar || '')}" style="max-height:48px;display:${AppProfile.avatar ? 'inline-block' : 'none'}"/><span id="s-avatar-empty" style="display:${AppProfile.avatar ? 'none' : 'inline-block'}">No avatar</span></div>
       <label><input type="checkbox" id="s-desktop" ${AppSettings.desktopNotifications ? 'checked' : ''}/> Enable desktop notifications</label>
@@ -1372,6 +1463,8 @@ function openSettings() {
   body.querySelector('#settings-cancel').onclick = () => closeGenericModal();
   body.querySelector('#settings-save').onclick = () => {
     const display = String(body.querySelector('#s-display').value || '').trim();
+    const pronouns = String(body.querySelector('#s-pronouns').value || '').trim();
+    const bio = String(body.querySelector('#s-bio').value || '').trim();
     const ds = !!body.querySelector('#s-desktop').checked;
     const ss = !!body.querySelector('#s-sound').checked;
     const ub = !!body.querySelector('#s-unread').checked;
@@ -1381,6 +1474,8 @@ function openSettings() {
     AppSettings.sound = ss;
     AppSettings.unreadBadge = ub;
     AppProfile.displayName = display || AppProfile.displayName || AppState.currentUser;
+    AppProfile.pronouns = pronouns;
+    AppProfile.bio = bio;
     AppProfile.dnd = dnd;
     AppSettings.pushEnabled = ps;
     saveSettings();
@@ -1474,6 +1569,10 @@ function sendMessage() {
     content: val,
     replyingTo: AppState.replyTarget,
     attachments,
+    senderDisplayName: AppProfile.displayName || AppState.currentUser,
+    senderAvatar: AppProfile.avatar || null,
+    senderPronouns: AppProfile.pronouns || '',
+    senderBio: AppProfile.bio || '',
   };
 
   if (isFirebaseBackend()) {

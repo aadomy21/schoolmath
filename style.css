@@ -1025,6 +1025,77 @@ body {
   color: #e91e63;
 }
 
+.msg-username {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-left: 8px;
+}
+
+.profile-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.profile-header {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.profile-avatar {
+  width: 72px;
+  height: 72px;
+  min-width: 72px;
+  border-radius: 18px;
+  background: var(--bg-dark);
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 28px;
+  border: 1px solid var(--divider);
+}
+
+.profile-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.profile-display-name {
+  color: var(--text-bright);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.profile-username,
+.profile-pronouns {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.profile-bio {
+  color: var(--text-norm);
+  font-size: 14px;
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+.profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.profile-self-note {
+  color: var(--accent);
+  font-size: 13px;
+}
+
 /* Mentions */
 .msg-content a.mention {
   color: var(--text-link);
@@ -1052,8 +1123,8 @@ body {
   font-size: 15px;
   line-height: 1.5;
   white-space: pre-wrap;
-   overflow-wrap: anywhere;
-   word-break: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 /* Command palette (slash commands) */
@@ -2026,11 +2097,13 @@ aside,
   overflow-y: auto;
   color: var(--text-norm);
 }
+
 .modal-body label {
   display: block;
   margin-bottom: 10px;
   color: var(--text-norm);
 }
+
 .modal-body input[type="text"],
 .modal-body input[type="email"],
 .modal-body input[type="password"],
@@ -2043,6 +2116,7 @@ aside,
   padding: 10px 12px;
   margin-top: 6px;
 }
+
 .modal-body input[type="checkbox"] {
   margin-right: 8px;
 }
