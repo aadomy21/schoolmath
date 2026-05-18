@@ -11,7 +11,6 @@
  * giphyApiKey: optional; browser calls Giphy directly when set (for static hosting).
  */
 window.APP_CONFIG = {
-  backend: "auto",
-  socketUrl: "https://cdn.jsdelivr.net/npm/socket.io-client@4.8.3/dist/socket.io.min.js",
+  backend: "firebase",
   giphyApiKey: "GYRCvyFxAWSOquEOXiJFMtY7YS2VDpOL",
 };
