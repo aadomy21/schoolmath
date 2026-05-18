@@ -478,11 +478,15 @@ window.addEventListener('keydown', (e) => {
       if (AppState.currentUser) return;
       if (isFirebaseBackend() && auth.currentUser) {
         AppState.currentUser = auth.currentUser.email.split("@")[0].toLowerCase();
+        UI.loginOverlay().classList.remove('active');
         revealApp();
         return;
       }
-      if (AppState.lastLoginUser && !isFirebaseBackend()) {
+      // Allow quick restore from localStorage even when Firebase is configured.
+      if (AppState.lastLoginUser) {
         AppState.currentUser = AppState.lastLoginUser;
+        UI.loginOverlay().classList.remove('active');
+        UI.loginEmail().value = AppState.lastLoginUser;
         revealApp();
         return;
       }
@@ -497,6 +501,16 @@ function handleLogin() {
   const email = UI.loginEmail().value.trim();
   const pass = UI.loginPass().value;
   const backend = getBackendMode();
+  // Allow simple username (no @) as a convenience fallback for local/static use.
+  // This bypasses Firebase auth so users can log in with a plain username.
+  if (email && !email.includes('@')) {
+    AppState.currentUser = email.toLowerCase();
+    try { saveLoginUser(AppState.currentUser); } catch (e) { }
+    AppState.lastLoginUser = AppState.currentUser;
+    UI.loginOverlay().classList.remove('active');
+    revealApp();
+    return;
+  }
   // If using socket backend (local dev), allow simple username login (no password)
   if (backend === 'socket') {
     if (!email) { showLoginError('Enter your username'); return; }

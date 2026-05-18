@@ -1,0 +1,69 @@
+{
+  "store": {
+    "guilds": {
+      "guild_default": {
+        "id": "guild_default",
+        "name": "School Portal",
+        "icon": null,
+        "ownerId": null,
+        "roles": {
+          "role_everyone": {
+            "id": "role_everyone",
+            "name": "@everyone",
+            "permissions": 3
+          },
+          "role_admin": {
+            "id": "role_admin",
+            "name": "Admin",
+            "permissions": 63
+          }
+        },
+        "members": {},
+        "channels": [
+          {
+            "id": "ch_general",
+            "name": "general",
+            "type": "text",
+            "category": "Text Channels",
+            "position": 0
+          },
+          {
+            "id": "ch_random",
+            "name": "random",
+            "type": "text",
+            "category": "Text Channels",
+            "position": 1
+          },
+          {
+            "id": "ch_homework",
+            "name": "homework-help",
+            "type": "text",
+            "category": "Text Channels",
+            "position": 2
+          },
+          {
+            "id": "ch_voice_lounge",
+            "name": "Lounge",
+            "type": "voice",
+            "category": "Voice Channels",
+            "position": 0
+          }
+        ],
+        "invites": {
+          "PORTAL01": {
+            "code": "PORTAL01",
+            "uses": 0,
+            "maxUses": 0
+          }
+        }
+      }
+    },
+    "messages": {
+      "g:guild_default:c:ch_general": [],
+      "g:guild_default:c:ch_random": [],
+      "g:guild_default:c:ch_homework": []
+    },
+    "dmMessages": {}
+  },
+  "pushSubscriptions": {}
+}
