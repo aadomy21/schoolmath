@@ -9,7 +9,7 @@
  *
  * socketUrl: e.g. "https://your-app.onrender.com" when hosting server.js elsewhere.
  * giphyApiKey: optional; browser calls Giphy directly when set (for static hosting).
- */
+ */ 
 window.APP_CONFIG = {
   backend: "firebase",
   giphyApiKey: "GYRCvyFxAWSOquEOXiJFMtY7YS2VDpOL",
