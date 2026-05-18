@@ -1996,7 +1996,7 @@ function sendMessage() {
   }
 
   if (isFirebaseBackend()) {
-    const content = payloadBase.content || (attachments.length ? " " : "");
+    const content = payloadBase.content ?? (attachments.length ? " " : "");
     const payload = {
       sender: AppState.currentUser,
       content,

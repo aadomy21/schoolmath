@@ -12,6 +12,6 @@
  */
 window.APP_CONFIG = {
   backend: "auto",
-  socketUrl: "",
-  giphyApiKey: "",
+  socketUrl: "aadomy21.github.io/school-math",
+  giphyApiKey: "GYRCvyFxAWSOquEOXiJFMtY7YS2VDpOL",
 };
