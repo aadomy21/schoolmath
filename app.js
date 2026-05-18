@@ -451,8 +451,7 @@ function clearSavedLoginUser() {
 
 window.onload = () => {
   AppState.lastLoginUser = getSavedLoginUser();
-  // Show the math worksheet first. Login prompt appears after unlocking the hidden hotspot.
-  // Do not auto-open login overlay here.
+  // Show the math worksheet first and also display the login prompt immediately.
   const unlock = document.getElementById('math-unlock');
   if (unlock) {
     unlock.addEventListener('click', () => {
@@ -460,10 +459,10 @@ window.onload = () => {
       if (AppState.lastLoginUser) UI.loginEmail().value = AppState.lastLoginUser;
       UI.loginEmail().focus();
     });
-  } else {
-    // fallback: show login overlay if unlock hotspot missing
-    UI.loginOverlay().classList.add("active");
   }
+  UI.loginOverlay().classList.add('active');
+  if (AppState.lastLoginUser) UI.loginEmail().value = AppState.lastLoginUser;
+  UI.loginEmail().focus();
   UI.loginPass().addEventListener("keydown", e => {
     if (e.key === "Enter") handleLogin();
   });
