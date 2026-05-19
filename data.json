@@ -5,7 +5,7 @@
         "id": "guild_default",
         "name": "School Portal",
         "icon": null,
-        "ownerId": null,
+        "ownerId": "bob",
         "roles": {
           "role_everyone": {
             "id": "role_everyone",
@@ -18,7 +18,24 @@
             "permissions": 63
           }
         },
-        "members": {},
+        "members": {
+          "bob": {
+            "roles": [
+              "role_everyone",
+              "role_admin"
+            ]
+          },
+          "alice": {
+            "roles": [
+              "role_everyone"
+            ],
+            "displayName": "Alice A",
+            "avatar": null,
+            "pronouns": "",
+            "bio": "",
+            "dnd": false
+          }
+        },
         "channels": [
           {
             "id": "ch_general",
@@ -56,14 +73,171 @@
             "maxUses": 0
           }
         }
+      },
+      "guild_00f5307cad7ba5cff5c8": {
+        "id": "guild_00f5307cad7ba5cff5c8",
+        "name": "Test Server",
+        "icon": null,
+        "ownerId": "bob",
+        "roles": {
+          "role_everyone": {
+            "id": "role_everyone",
+            "name": "@everyone",
+            "permissions": 3
+          },
+          "role_admin": {
+            "id": "role_admin",
+            "name": "Admin",
+            "permissions": 63
+          }
+        },
+        "members": {
+          "bob": {
+            "roles": [
+              "role_everyone",
+              "role_admin"
+            ]
+          },
+          "alice": {
+            "roles": [
+              "role_everyone"
+            ]
+          }
+        },
+        "channels": [
+          {
+            "id": "ch_41f6f1611906b5d95880",
+            "name": "general",
+            "type": "text",
+            "category": "Text Channels",
+            "position": 0
+          },
+          {
+            "id": "ch_590674e48cce3bb28bb3",
+            "name": "announcements",
+            "type": "text",
+            "category": "Text Channels",
+            "position": 1
+          }
+        ],
+        "invites": {
+          "2D889F3C66": {
+            "code": "2D889F3C66",
+            "uses": 1,
+            "maxUses": 0
+          }
+        }
       }
     },
     "messages": {
-      "g:guild_default:c:ch_general": [],
+      "g:guild_default:c:ch_general": [
+        {
+          "id": "1d30952662501e0083d0",
+          "sender": "alice",
+          "senderDisplayName": "alice",
+          "content": "Hello from Alice",
+          "timestamp": 1779176050508,
+          "editedAt": null,
+          "replyingTo": null,
+          "attachments": [],
+          "reactions": [
+            {
+              "emoji": "😂",
+              "count": 1,
+              "users": [
+                "bob"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "5fabb64ddc2ad9144aec",
+          "sender": "bob",
+          "senderDisplayName": "bob",
+          "content": "Hello from Bob",
+          "timestamp": 1779176510761,
+          "editedAt": null,
+          "replyingTo": null,
+          "attachments": [],
+          "reactions": []
+        },
+        {
+          "id": "365a16fc6355d81d7e9e",
+          "sender": "alice",
+          "senderDisplayName": "alice",
+          "content": "Replying to Bob in general",
+          "timestamp": 1779176660976,
+          "editedAt": null,
+          "replyingTo": {
+            "id": "5fabb64ddc2ad9144aec",
+            "sender": "bob",
+            "content": "Hello from Bob"
+          },
+          "attachments": [],
+          "reactions": []
+        },
+        {
+          "id": "28dbf457be9c83c17b34",
+          "sender": "alice",
+          "senderDisplayName": "alice",
+          "content": "¯\\_(ツ)_/¯",
+          "timestamp": 1779176729775,
+          "editedAt": null,
+          "replyingTo": null,
+          "attachments": [],
+          "reactions": []
+        },
+        {
+          "id": "be0f91ed8a07d36dd299",
+          "sender": "alice",
+          "senderDisplayName": "alice",
+          "content": "@bob ping",
+          "timestamp": 1779176742585,
+          "editedAt": null,
+          "replyingTo": null,
+          "attachments": [],
+          "reactions": []
+        }
+      ],
       "g:guild_default:c:ch_random": [],
-      "g:guild_default:c:ch_homework": []
+      "g:guild_default:c:ch_homework": [],
+      "g:guild_00f5307cad7ba5cff5c8:c:ch_41f6f1611906b5d95880": [
+        {
+          "id": "3988aca6e8efd096865f",
+          "sender": "bob",
+          "senderDisplayName": "bob",
+          "content": "",
+          "timestamp": 1779176980805,
+          "editedAt": null,
+          "replyingTo": null,
+          "attachments": [
+            {
+              "type": "file",
+              "name": "tiny.png",
+              "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADElEQVQImWP4DwQACfsD/aAOpiIAAAAASUVORK5CYII=",
+              "mime": "image/png"
+            }
+          ],
+          "reactions": []
+        }
+      ],
+      "g:guild_00f5307cad7ba5cff5c8:c:ch_590674e48cce3bb28bb3": []
     },
-    "dmMessages": {}
+    "dmMessages": {
+      "alice__bob": [
+        {
+          "id": "d1e7760d7a0cf4dd192b",
+          "sender": "bob",
+          "senderDisplayName": "bob",
+          "content": "Hi Alice, Bob here in DM.",
+          "timestamp": 1779176552713,
+          "editedAt": null,
+          "replyingTo": null,
+          "attachments": [],
+          "reactions": []
+        }
+      ]
+    }
   },
   "pushSubscriptions": {}
 }

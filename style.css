@@ -847,6 +847,8 @@ body {
   flex-grow: 1;
   overflow-y: auto;
   overflow-x: hidden;
+  overflow-anchor: none;
+  -webkit-overflow-scrolling: touch;
   padding: 16px 0 8px;
   display: flex;
   flex-direction: column;
@@ -2085,6 +2087,99 @@ aside,
   padding-left: 12px;
 }
 
+@media (max-width: 900px) {
+  #nav-strip {
+    width: 56px;
+    min-width: 56px;
+  }
+
+  #sidebar {
+    width: 72px;
+    min-width: 72px;
+  }
+
+  #members-panel {
+    display: none;
+  }
+
+  #chat-header {
+    padding: 0 12px;
+  }
+
+  #chat-header .topic {
+    display: none;
+  }
+
+  #message-container {
+    padding: 10px 8px 8px;
+  }
+
+  .msg-wrap {
+    padding: 8px 12px;
+  }
+
+  .msg-avatar-col {
+    width: 34px;
+    margin-right: 10px;
+  }
+
+  #input-bar {
+    padding: 0 10px 16px;
+  }
+
+  #input-wrap {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  #input-buttons-left,
+  #input-buttons-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  #console-input {
+    width: 100%;
+    padding: 10px 8px;
+  }
+
+  .input-icon {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+@media (max-width: 720px) {
+
+  #nav-strip,
+  #sidebar,
+  #members-panel {
+    display: none;
+  }
+
+  #app-ui {
+    flex-direction: column;
+  }
+
+  #chat-main {
+    min-width: 0;
+  }
+
+  #chat-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  #chat-header .header-icons {
+    order: -1;
+    margin-left: 0;
+  }
+
+  #message-container {
+    padding: 8px 4px 8px;
+  }
+}
+
 /* Reaction popover */
 .reaction-popover {
   position: fixed;
@@ -2258,7 +2353,8 @@ aside,
 
 .msg-embed-gif {
   margin-top: 6px;
-  max-width: 320px;
+  width: 100%;
+  max-width: min(100%, 320px);
   border-radius: 8px;
   overflow: hidden;
   border: 1px solid var(--border);
@@ -2267,6 +2363,7 @@ aside,
 .msg-embed-gif img {
   display: block;
   width: 100%;
+  height: auto;
   max-height: 280px;
   object-fit: contain;
   background: #000;

@@ -1365,9 +1365,9 @@ function renderMessage(msgId, data, isGroupStart, msgIndex = 0) {
     attachHTML = `<div class="msg-attachments">`;
     for (const a of atts) {
       if (a.type === "gif" && a.url) {
-        attachHTML += `<div class="msg-embed-gif"><img src="${escAttr(a.url)}" alt="gif"></div>`;
+        attachHTML += `<div class="msg-embed-gif"><img src="${escAttr(a.url)}" alt="gif" loading="lazy"></div>`;
       } else if (a.url && a.url.startsWith("data:image")) {
-        attachHTML += `<div class="msg-embed-gif"><img src="${escAttr(a.url)}" alt="${escAttr(a.name || "")}"></div>`;
+        attachHTML += `<div class="msg-embed-gif"><img src="${escAttr(a.url)}" alt="${escAttr(a.name || "")}" loading="lazy"></div>`;
       } else if (a.url) {
         attachHTML += `<a href="${escAttr(a.url)}" download="${escAttr(a.name || "file")}" target="_blank" rel="noopener">${escHtml(a.name || "Download attachment")}</a>`;
       }
@@ -1411,6 +1411,7 @@ function renderMessage(msgId, data, isGroupStart, msgIndex = 0) {
     if (data.content && new RegExp(`@${AppState.currentUser}\\b`, 'i').test(data.content)) wrap.classList.add('mention-me');
   } catch (e) { }
   if (data.replyingTo && data.replyingTo.sender === AppState.currentUser) wrap.classList.add('reply-to-me');
+  attachImageScrollHandling(wrap);
 }
 
 function appendOrRerenderMessage(id) {
@@ -1481,8 +1482,8 @@ function renderMessageInto(wrap, data, isGroupStart) {
   if (atts.length) {
     attachHTML = `<div class="msg-attachments">`;
     for (const a of atts) {
-      if (a.type === "gif" && a.url) attachHTML += `<div class="msg-embed-gif"><img src="${escAttr(a.url)}" alt="gif"></div>`;
-      else if (a.url && a.url.startsWith("data:image")) attachHTML += `<div class="msg-embed-gif"><img src="${escAttr(a.url)}" alt=""></div>`;
+      if (a.type === "gif" && a.url) attachHTML += `<div class="msg-embed-gif"><img src="${escAttr(a.url)}" alt="gif" loading="lazy"></div>`;
+      else if (a.url && a.url.startsWith("data:image")) attachHTML += `<div class="msg-embed-gif"><img src="${escAttr(a.url)}" alt="" loading="lazy"></div>`;
       else if (a.url) attachHTML += `<a href="${escAttr(a.url)}" download="${escAttr(a.name || "file")}" target="_blank" rel="noopener">${escHtml(a.name || "Download")}</a>`;
     }
     attachHTML += `</div>`;
@@ -1518,10 +1519,24 @@ function renderMessageInto(wrap, data, isGroupStart) {
     </div>`;
   if (data.content && new RegExp(`@${AppState.currentUser}\\b`, 'i').test(data.content)) wrap.classList.add('mention-me');
   if (data.replyingTo && data.replyingTo.sender === AppState.currentUser) wrap.classList.add('reply-to-me');
+  attachImageScrollHandling(wrap);
+}
+
+function attachImageScrollHandling(root) {
+  const mc = UI.msgContainer();
+  if (!mc) return;
+  const shouldKeepScroll = mc.scrollHeight - mc.scrollTop - mc.clientHeight <= 72;
+  root.querySelectorAll('.msg-embed-gif img').forEach(img => {
+    if (img.complete) return;
+    img.addEventListener('load', () => {
+      if (shouldKeepScroll) scrollToBottom();
+    }, { once: true });
+  });
 }
 
 function scrollToBottom() {
   const mc = UI.msgContainer();
+  if (!mc) return;
   mc.scrollTop = mc.scrollHeight;
 }
 
